@@ -54,7 +54,7 @@ class IndexProxy : public Object {
     Size() const = 0;
     virtual int64_t
     Count() const = 0;
-    virtual const string
+    virtual const std::string
     Type() {
         return "IndexProxy";
     }
