@@ -249,6 +249,7 @@ endif ()
 add_subdirectory( knowhere/utils )
 add_subdirectory( thirdparty )
 add_subdirectory( knowhere )
+add_subdirectory( cqy-benchmark )
 
 if ( KNOWHERE_BUILD_TESTS )
     append_flags( CMAKE_CXX_FLAGS FLAGS "-DELPP_DISABLE_LOGS")

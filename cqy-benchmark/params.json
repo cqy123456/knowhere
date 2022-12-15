@@ -1,0 +1,158 @@
+{
+    "build": {
+        "DISKANN": {
+            "max_degree": 24,
+            "search_list_size": 64,
+            "pq_code_budget_gb_rate": 0.125,
+            "build_dram_budget_gb":32.0,
+            "num_threads": 8
+        },
+        "HNSW": {
+            "M": 30,
+            "efConstruction": 360
+        },
+        "FLAT": {
+            "nlist": 1024,
+            "m": 16,
+            "nbits": 8
+        },
+        "IVF": {
+            "nlist": 1024,
+            "m": 16,
+            "nbits": 8
+        },
+        "ANNOY": {
+            "n_trees": 64
+        }
+    },
+    "load": {
+        "DISKANN": {
+            "search_cache_budget_gb_rate": 0.125,
+            "num_threads":8
+        }
+    },
+    "accuracy_search": {
+        "DISKANN": [
+            {
+                "topk": 10,
+                "search_list_size": 10,
+                "beamwidth":16
+            },
+            {
+                "topk": 10,
+                "search_list_size": 15,
+                "beamwidth":16
+            },
+            {
+                "topk": 10,
+                "search_list_size": 20,
+                "beamwidth":16
+            },
+            {
+                "topk": 10,
+                "search_list_size": 25,
+                "beamwidth":16
+            },
+            {
+                "topk": 10,
+                "search_list_size": 30,
+                "beamwidth":16
+            }],
+        "HNSW": [
+            {
+                "topk": 10,
+                "ef": 10
+            },
+            {
+                "topk": 10,
+                "ef": 20
+            },
+            {
+                "topk": 10,
+                "ef": 30
+            },
+            {
+                "topk": 10,
+                "ef": 40 
+            },
+            {
+                "topk": 10,
+                "ef": 50
+            }],
+        "FLAT": [
+                {
+                "topk": 10
+                }
+            ],
+        "IVF": [
+            {
+                "topk": 10,
+                "nprobe": 10
+            },
+            {
+                "topk": 10,
+                "nprobe": 20
+            },
+            {
+                "topk": 10,
+                "nprobe": 30
+            },
+            {
+                "topk": 10,
+                "nprobe": 40
+            },
+            {
+                "topk": 10,
+                "nprobe": 50
+            }
+        ],
+        "ANNOY": [
+            {
+                "topk": 10,
+                "search_k": 100
+            },
+            {
+                "topk": 10,
+                "search_k": 200
+            }, 
+            {
+                "topk": 10,
+                "search_k": 300
+            },
+            {
+                "topk": 10,
+                "search_k": 400
+            }, 
+            {
+                "topk": 10,
+                "search_k": 500
+            }
+        ]
+    },
+    "performance_search": {
+        "base": {
+            "client_num": 16,
+            "query_num": [1, 30]
+        },
+        "DISKANN": {
+            "topk": 10,
+            "search_list_size": 20,
+            "beamwidth":8
+        },
+        "HNSW": {
+            "topk": 10,
+            "ef": 20
+        },
+        "FLAT": {
+            "topk": 10
+        },
+        "IVF": {
+            "topk": 10,
+            "nprobe": 40
+        },
+        "ANNOY": {
+            "topk": 10,
+            "search_k": 200
+        }
+    }
+}
