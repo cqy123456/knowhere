@@ -491,7 +491,7 @@ namespace diskann {
       medoid_read[0].buf = medoid_buf;
       medoid_read[0].offset = get_node_sector_offset(medoid);
       reader->read(medoid_read, ctx);
-
+      LOG(INFO) << "after aio read";
       // all data about medoid
       char *medoid_node_buf = get_offset_to_node(medoid_buf, medoid);
 
@@ -499,7 +499,7 @@ namespace diskann {
       T *medoid_coords = new T[data_dim];
       T *medoid_disk_coords = OFFSET_TO_NODE_COORDS(medoid_node_buf);
       memcpy(medoid_coords, medoid_disk_coords, disk_bytes_per_point);
-
+      LOG(INFO) << "copy data to medoid_coords";
       if (!use_disk_index_pq) {
         for (uint32_t i = 0; i < data_dim; i++)
           centroid_data[cur_m * aligned_dim + i] = medoid_coords[i];
