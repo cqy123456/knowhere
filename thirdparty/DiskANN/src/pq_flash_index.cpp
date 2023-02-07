@@ -482,6 +482,7 @@ namespace diskann {
               << num_medoids << " medoid(s)";
     for (uint64_t cur_m = 0; cur_m < num_medoids; cur_m++) {
       auto medoid = medoids[cur_m];
+      LOG(INFO) << "loading medoid id" << medoid;
       // read medoid nhood
       char *medoid_buf = nullptr;
       alloc_aligned((void **) &medoid_buf, read_len_for_node, SECTOR_LEN);
@@ -510,6 +511,7 @@ namespace diskann {
       aligned_free(medoid_buf);
       delete[] medoid_coords;
     }
+    LOG(INFO) << "end of loading medoid.";
 
     // return ctx
     this->thread_data.push(data);
