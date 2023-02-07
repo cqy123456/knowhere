@@ -499,7 +499,7 @@ namespace diskann {
       T *medoid_coords = new T[data_dim];
       T *medoid_disk_coords = OFFSET_TO_NODE_COORDS(medoid_node_buf);
       memcpy(medoid_coords, medoid_disk_coords, disk_bytes_per_point);
-      LOG(INFO) << "copy data to medoid_coords";
+      LOG(INFO) << "copy data to medoid_coords, data_dim, aligned_dim:"<<data_dim<<" "<<aligned_dim<<std::endl;
       if (!use_disk_index_pq) {
         for (uint32_t i = 0; i < data_dim; i++)
           centroid_data[cur_m * aligned_dim + i] = medoid_coords[i];
@@ -507,9 +507,11 @@ namespace diskann {
         disk_pq_table.inflate_vector((_u8 *) medoid_coords,
                                      (centroid_data + cur_m * aligned_dim));
       }
-
+      LOG(INFO) << "copy to centroid_data done";
       aligned_free(medoid_buf);
+      LOG(INFO) << "aligned_free.";
       delete[] medoid_coords;
+      LOG(INFO) << "medoid_coords.";
     }
     LOG(INFO) << "end of loading medoid.";
 
