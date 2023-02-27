@@ -42,27 +42,27 @@ static const std::unordered_set<std::string> ext_legal_json_keys = {
 
 Status
 Config::FormatAndCheck(const Config& cfg, Json& json) {
-    for (auto& it : json.items()) {
-        bool status = true;
-        {
-            auto it_ = cfg.__DICT__.find(it.key());
-            if (it_ == cfg.__DICT__.end()) {
-                status = false;
-            }
-        }
-        {
-            auto it_ = ext_legal_json_keys.find(it.key());
-            if (it_ == ext_legal_json_keys.end()) {
-                status |= false;
-            } else {
-                status |= true;
-            }
-        }
-        if (!status) {
-            LOG_KNOWHERE_ERROR_ << "invalid json key: " << it.key();
-            return Status::invalid_param_in_json;
-        }
-    }
+    // for (auto& it : json.items()) {
+    //     bool status = true;
+    //     {
+    //         auto it_ = cfg.__DICT__.find(it.key());
+    //         if (it_ == cfg.__DICT__.end()) {
+    //             status = false;
+    //         }
+    //     }
+    //     {
+    //         auto it_ = ext_legal_json_keys.find(it.key());
+    //         if (it_ == ext_legal_json_keys.end()) {
+    //             status |= false;
+    //         } else {
+    //             status |= true;
+    //         }
+    //     }
+    //     if (!status) {
+    //         LOG_KNOWHERE_ERROR_ << "invalid json key: " << it.key();
+    //         return Status::invalid_param_in_json;
+    //     }
+    // }
 
     try {
         for (const auto& it : cfg.__DICT__) {

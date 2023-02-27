@@ -117,6 +117,8 @@ if(WITH_BENCHMARK)
   add_subdirectory(benchmark)
 endif()
 
+add_subdirectory(cqy-benchmark)
+
 install(TARGETS knowhere
         DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
 install(
