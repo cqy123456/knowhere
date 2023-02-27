@@ -14,6 +14,8 @@
 #include <omp.h>
 
 #include "common/range_util.h"
+#include "diskann/aux_utils.h"
+#include "diskann/partition_and_pq.h"
 #include "hnswlib/hnswalg.h"
 #include "hnswlib/hnswlib.h"
 #include "index/hnsw/hnsw_config.h"
@@ -22,6 +24,19 @@
 #include "knowhere/factory.h"
 
 namespace knowhere {
+const static std::string pq_pivots_path = "pq_pivots_path";
+const static std::string pq_compressed_vectors_path = "pq_compressed_vectors_path";
+template <typename T>
+void
+write_bin_file(const std::string& data_path, const T* data, const uint32_t row, const uint32_t col) {
+    std::ofstream writer(data_path.c_str(), std::ios::binary);
+    writer.write((char*)&row, sizeof(uint32_t));
+    writer.write((char*)&col, sizeof(uint32_t));
+    writer.write((char*)data, sizeof(T) * row * col);
+    writer.close();
+    return;
+}
+
 class HnswIndexNode : public IndexNode {
  public:
     HnswIndexNode(const Object& object) : index_(nullptr) {
@@ -81,6 +96,32 @@ class HnswIndexNode : public IndexNode {
 #pragma omp parallel for
         for (int i = 1; i < rows; ++i) {
             index_->addPoint((static_cast<const float*>(tensor) + dim * i), i);
+        }
+
+        size_t train_size;
+        float* train_data = nullptr;
+        double p_val = ((double)diskann::MAX_PQ_TRAINING_SET_SIZE / (double)rows);
+        size_t num_pq_chunks = std::ceil(dim * 1.0 / hnsw_cfg.sub_dim);
+        bool make_zero_mean = true;
+        std::string data_file_to_use = "raw_data.bin";
+        if (hnsw_cfg.metric_type == metric::IP)
+            make_zero_mean = false;
+        const float* raw_data = static_cast<const float*>(tensor);
+        write_bin_file<float>(data_file_to_use, raw_data, rows, dim);
+
+        gen_random_slice(raw_data, rows, dim, p_val, train_data, train_size);
+        std::cout << "begin train pq, train size" << train_size << std::endl;
+
+        generate_pq_pivots(train_data, train_size, (uint32_t)dim, 256, (uint32_t)num_pq_chunks,
+                           diskann::NUM_KMEANS_REPS, pq_pivots_path, make_zero_mean);
+        std::cout << "generate_pq_pivots" << std::endl;
+
+        generate_pq_data_from_pivots<float>(data_file_to_use.c_str(), 256, (uint32_t)num_pq_chunks, pq_pivots_path,
+                                            pq_compressed_vectors_path);
+        std::cout << "generate_pq_data_from_pivots" << std::endl;
+
+        if (train_data != nullptr) {
+            delete[] train_data;
         }
         return Status::success;
     }
@@ -313,7 +354,7 @@ class HnswIndexNode : public IndexNode {
 
             hnswlib::SpaceInterface<float>* space = nullptr;
             index_ = new (std::nothrow) hnswlib::HierarchicalNSW<float>(space);
-            index_->loadIndex(reader);
+            index_->loadIndex(reader, pq_compressed_vectors_path, pq_pivots_path);
         } catch (std::exception& e) {
             LOG_KNOWHERE_WARNING_ << "hnsw inner error, " << e.what();
             return Status::hnsw_inner_error;

@@ -50,6 +50,9 @@ $ cmake .. -DCMAKE_BUILD_TYPE=Release -DUSE_CUDA=ON -DWITH_UT=ON -G Ninja
 $ cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_UT=ON -DWITH_DISKANN=ON -G Ninja
 #verbose compile
 $ninja -v
+# use cqy-benchmark
+cd cqy-benchmark;
+./run.sh -h
 ```
 
 #### Running Unit Tests

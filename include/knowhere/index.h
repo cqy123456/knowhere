@@ -155,7 +155,7 @@ class Index {
         auto cfg = this->node->CreateConfig();
         {
             auto res = Config::FormatAndCheck(*cfg, json_);
-            LOG_KNOWHERE_INFO_ << json_.dump();
+            // LOG_KNOWHERE_INFO_ << json_.dump();
             if (res != Status::success) {
                 return unexpected(res);
             }

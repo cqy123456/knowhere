@@ -11,7 +11,8 @@
         },
         "HNSW": {
             "M": 30,
-            "efConstruction": 360
+            "efConstruction": 360,
+            "sub_dim": 4
         },
         "FLAT": {},
         "BIN_FLAT": {},
@@ -226,7 +227,8 @@
         "base": {
             "client_num": 16,
             "query_num": [
-                1
+                1,
+                30
             ]
         },
         "DISKANN": {

@@ -134,6 +134,7 @@ AVX512Capable() {
 
 namespace hnswlib {
 typedef int64_t labeltype;
+#define MAX_SCRATCH_NUM 64
 
 template <typename T>
 class pairGreater {
@@ -190,6 +191,7 @@ class SpaceInterface {
 
 struct SearchParam {
     size_t ef_;
+    float result_factor_;
 };
 
 template <typename dist_t>

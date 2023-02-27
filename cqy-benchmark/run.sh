@@ -95,7 +95,9 @@ fi
 
 for task in ${task_list[@]}
 do
-    index_path="$index_prefix/${parameterT}_${parameterD}"
+    index_dir="$index_prefix/${parameterT}_${parameterD}"
+
+    index_path="$index_dir/${parameterT}_${parameterD}"
     log_path="$log_prefix/${parameterT}_${parameterD}_${task}"
     if [ "$parameterT" == "DISKANN" ]; then
         if [ "$task" == "build" ]; then
@@ -104,9 +106,23 @@ do
         index_path="${index_path}/"
         echo "$index_path"
     fi
+    if [ "$parameterT" == "HNSW" ]; then
+        if [ "$task" == "build" ]; then
+            rm -rf $index_dir; mkdir $index_dir; 
+        else 
+            cp $index_dir/pq* .
+        fi
+    fi
     sync; echo 3 | sudo tee /proc/sys/vm/drop_caches;
     echo "./../build/cqy-benchmark/knowhere-benchmark --data_path $hdf5_name --index_path $index_path --index_type $parameterT --metric_type ${metric} --runner_type $task --log_path $log_path"
     ./../build/cqy-benchmark/knowhere-benchmark --data_path $hdf5_name --index_path $index_path --index_type $parameterT --metric_type ${metric} --runner_type $task --log_path $log_path
+    # if [ "$parameterT" == "HNSW" ]; then
+    #     if [ "$task" == "build" ]; then
+    #         mv pq* $index_dir
+    #     else
+    #         rm -rf pq*
+    #     fi
+    # fi
 done 
     
 

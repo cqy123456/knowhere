@@ -30,7 +30,7 @@ namespace benchmark {
 namespace {
 constexpr int kSerialSearchRound = 100;
 constexpr int kThreadMaxQueryNum = 10000;
-constexpr int kThreadTotalQueryNum = 900;
+constexpr int kThreadTotalQueryNum = 300;
 inline bool
 IsBinaryType(const std::string& index_type) {
     return index_type.find("BIN") != std::string::npos;
@@ -110,15 +110,16 @@ ThreadTask(ThreadMeta thread_meta) {
 
     auto total_qs = is_binary ? GenRandomDataSet<true>(kThreadMaxQueryNum, thread_meta.ndim, thread_meta.thread_id)
                               : GenRandomDataSet<false>(kThreadMaxQueryNum, thread_meta.ndim, thread_meta.thread_id);
-    uint32_t round = kThreadTotalQueryNum / thread_meta.nq;
+    uint32_t round = 100;
     auto qs = std::make_shared<knowhere::DataSet>();
     qs->SetDim(thread_meta.ndim);
     qs->SetRows(thread_meta.nq);
     qs->SetIsOwner(false);
 
-    while (true) {
-        double time = 0;
-        Timer timer;
+    double time = 0;
+    Timer timer;
+
+    for (auto i = 0; i < round; i++) {
         if (is_binary) {
             for (auto i = 0; i < round; i++) {
                 qs->SetTensor((uint8_t*)total_qs->GetTensor() +
@@ -136,8 +137,9 @@ ThreadTask(ThreadMeta thread_meta) {
                 time += timer.time_elapsed_ms();
             }
         }
-        thread_meta.latancy = time / (double)round;
     }
+
+    thread_meta.latancy = time / (double)round;
 }
 
 void
@@ -340,7 +342,7 @@ SearchPerformanceTask(const std::string& index_type, const std::string& data_pat
     auto& nq_list = search_json.at("query_num");
     for (auto i = 0; i < nq_list.size(); i++) {
         int nq = nq_list.at(i).get<int>();
-        // SerialSearchTask(index, data_path, index_path, metric_type, nq, result_out);
+        SerialSearchTask(index, data_path, index_path, metric_type, nq, result_out);
         ParallelSearchTask(index, data_path, index_path, metric_type, nq, search_json.at("client_num").get<int>(),
                            result_out);
     }

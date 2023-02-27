@@ -21,6 +21,8 @@ class HnswConfig : public BaseConfig {
     int efConstruction;
     int ef;
     int overview_levels;
+    float result_factor;
+    int sub_dim;
     KNOHWERE_DECLARE_CONFIG(HnswConfig) {
         KNOWHERE_CONFIG_DECLARE_FIELD(M).description("hnsw M").set_default(16).set_range(1, 2048).for_train();
         KNOWHERE_CONFIG_DECLARE_FIELD(efConstruction)
@@ -39,6 +41,12 @@ class HnswConfig : public BaseConfig {
             .set_default(3)
             .set_range(1, 5)
             .for_feder();
+        KNOWHERE_CONFIG_DECLARE_FIELD(result_factor)
+            .description("result_factor")
+            .set_default(1.0)
+            .for_search()
+            .for_range_search();
+        KNOWHERE_CONFIG_DECLARE_FIELD(sub_dim).description("sub_dim").set_default(1).for_train();
     }
 };
 
