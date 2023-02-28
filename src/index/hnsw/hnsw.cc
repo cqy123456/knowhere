@@ -86,7 +86,7 @@ class HnswIndexNode : public IndexNode {
         if (!index_) {
             return Status::empty_index;
         }
-
+        auto graph_s = std::chrono::high_resolution_clock::now();
         auto rows = dataset.GetRows();
         auto dim = dataset.GetDim();
         auto tensor = dataset.GetTensor();
@@ -97,7 +97,9 @@ class HnswIndexNode : public IndexNode {
         for (int i = 1; i < rows; ++i) {
             index_->addPoint((static_cast<const float*>(tensor) + dim * i), i);
         }
-
+        auto pq_s = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> graph_diff = graph_s - pq_s;
+        LOG_KNOWHERE_INFO_ << "Training graph cost: " << graph_diff.count() << "s";
         size_t train_size;
         float* train_data = nullptr;
         double p_val = ((double)diskann::MAX_PQ_TRAINING_SET_SIZE / (double)rows);
@@ -119,7 +121,9 @@ class HnswIndexNode : public IndexNode {
         generate_pq_data_from_pivots<float>(data_file_to_use.c_str(), 256, (uint32_t)num_pq_chunks, pq_pivots_path,
                                             pq_compressed_vectors_path);
         std::cout << "generate_pq_data_from_pivots" << std::endl;
-
+        auto pq_e = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> pq_diff = pq_e - pq_s;
+        LOG_KNOWHERE_INFO_ << "Training PQ codes cost: " << pq_diff.count() << "s";
         if (train_data != nullptr) {
             delete[] train_data;
         }

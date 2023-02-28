@@ -12,7 +12,7 @@
         "HNSW": {
             "M": 30,
             "efConstruction": 360,
-            "sub_dim": 16
+            "sub_dim": 4
         },
         "FLAT": {},
         "BIN_FLAT": {},
@@ -68,7 +68,52 @@
             {
                 "k": 10,
                 "result_factor": 1.0,
-                "ef": 70
+                "ef": 10
+            },
+            {
+                "k": 10,
+                "result_factor": 1.0,
+                "ef": 12
+            },
+            {
+                "k": 10,
+                "result_factor": 1.0,
+                "ef": 14
+            },
+            {
+                "k": 10,
+                "result_factor": 1.0,
+                "ef": 20
+            },
+            {
+                "k": 10,
+                "result_factor": 1.0,
+                "ef": 22
+            },
+            {
+                "k": 10,
+                "result_factor": 1.0,
+                "ef": 26
+            },
+            {
+                "k": 10,
+                "result_factor": 1.0,
+                "ef": 28
+            },
+            {
+                "k": 10,
+                "result_factor": 1.0,
+                "ef": 30
+            },
+            {
+                "k": 10,
+                "result_factor": 1.0,
+                "ef": 40
+            },
+            {
+                "k": 10,
+                "result_factor": 1.0,
+                "ef": 50
             },
             {
                 "k": 10,
@@ -119,36 +164,6 @@
                 "k": 10,
                 "result_factor": 1.0,
                 "ef": 170
-            },
-            {
-                "k": 10,
-                "result_factor": 1.0,
-                "ef": 180
-            },
-            {
-                "k": 10,
-                "result_factor": 1.0,
-                "ef": 200
-            },
-            {
-                "k": 10,
-                "result_factor": 1.0,
-                "ef": 220
-            },
-            {
-                "k": 10,
-                "result_factor": 1.0,
-                "ef": 240
-            },
-            {
-                "k": 10,
-                "result_factor": 1.0,
-                "ef": 260
-            },
-            {
-                "k": 10,
-                "result_factor": 1.0,
-                "ef": 270
             }
         ],
         "FLAT": [
