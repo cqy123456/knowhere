@@ -125,6 +125,7 @@ namespace diskann {
         tables_T[j * 256 + i] = tables[i * ndims_u64 + j];
       }
     }
+    std::cout << "end of loading pq" << std::endl;
   }
 
   _u32

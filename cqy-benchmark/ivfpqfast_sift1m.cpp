@@ -174,8 +174,8 @@ load_and_search(const std::string& data_file, const std::string& index_file) {
 int
 main() {
     omp_set_num_threads(12);
-    const std::string file_name = "/data/knowhere-2.0/knowhere/cqy-benchmark/tests/data/gist-960-euclidean.hdf5";
-    const std::string index_file = "fast_scann_gist1m.bin";
+    const std::string file_name = "/data/knowhere-2.0/knowhere/cqy-benchmark/tests/data/sift-128-euclidean.hdf5";
+    const std::string index_file = "fast_scann_sift1m.bin";
     // build_and_save(file_name, index_file);
     load_and_search(file_name, index_file);
 

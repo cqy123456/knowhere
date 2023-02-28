@@ -162,26 +162,26 @@ class HnswIndexNode : public IndexNode {
         std::vector<std::future<void>> futures;
         futures.reserve(nq);
         for (int i = 0; i < nq; ++i) {
-            futures.push_back(pool_->push([&, index = i]() {
-                auto single_query = xq + index * dim;
-                auto rst = index_->searchKnn(single_query, k, bitset, &param, feder_result);
-                size_t rst_size = rst.size();
-                auto p_single_dis = p_dist + index * k;
-                auto p_single_id = p_id + index * k;
-                for (size_t idx = 0; idx < rst_size; ++idx) {
-                    const auto& [dist, id] = rst[idx];
-                    p_single_dis[idx] = transform ? (1 - dist) : dist;
-                    p_single_id[idx] = id;
-                }
-                for (size_t idx = rst_size; idx < (size_t)k; idx++) {
-                    p_single_dis[idx] = float(1.0 / 0.0);
-                    p_single_id[idx] = -1;
-                }
-            }));
+            //  futures.push_back(pool_->push([&, index = i]() {
+            auto single_query = xq + i * dim;
+            auto rst = index_->searchKnn(single_query, k, bitset, &param, feder_result);
+            size_t rst_size = rst.size();
+            auto p_single_dis = p_dist + i * k;
+            auto p_single_id = p_id + i * k;
+            for (size_t idx = 0; idx < rst_size; ++idx) {
+                const auto& [dist, id] = rst[idx];
+                p_single_dis[idx] = transform ? (1 - dist) : dist;
+                p_single_id[idx] = id;
+            }
+            for (size_t idx = rst_size; idx < (size_t)k; idx++) {
+                p_single_dis[idx] = float(1.0 / 0.0);
+                p_single_id[idx] = -1;
+            }
+            // }));
         }
-        for (auto& future : futures) {
-            future.get();
-        }
+        // for (auto& future : futures) {
+        //     future.get();
+        // }
 
         auto res = GenResultDataSet(nq, k, p_id, p_dist);
 

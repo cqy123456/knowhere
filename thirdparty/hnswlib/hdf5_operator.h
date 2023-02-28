@@ -1,6 +1,6 @@
 #pragma once
 #include "hdf5.h"
-namespace scann_test {
+namespace HDF5_file {
 static const char* HDF5_DATASET_TRAIN = "train";
 static const char* HDF5_DATASET_TEST = "test";
 static const char* HDF5_DATASET_NEIGHBORS = "neighbors";
@@ -315,4 +315,4 @@ class HDF5Reader {
  private:
     std::string file_name_;
 };
-}  // namespace scann_test
+}  // namespace HDF5_file

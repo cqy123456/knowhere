@@ -123,14 +123,15 @@ AVX512Capable() {
 }
 #endif
 
-#include <knowhere/bitsetview.h>
-#include <knowhere/feder/HNSW.h>
 #include <string.h>
 
 #include <fstream>
 #include <iostream>
 #include <queue>
 #include <vector>
+
+#include "knowhere/bitsetview.h"
+#include "knowhere/feder/HNSW.h"
 
 namespace hnswlib {
 typedef int64_t labeltype;

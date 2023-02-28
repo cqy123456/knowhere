@@ -12,6 +12,9 @@ else()
     message (FATAL_ERROR "Could not find Boost 1.67!")
 endif()
 
+link_directories(/usr/lib/x86_64-linux-gnu/mkl)
+include_directories(/usr/include/mkl)
+
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/thirdparty/faiss)

@@ -15,7 +15,10 @@
 #include "diskann/pq_table.h"
 #include "hnswlib.h"
 #include "io/FaissIO.h"
+#include "knowhere/bitsetview.h"
 #include "neighbor.h"
+#include "space_ip.h"
+#include "space_l2.h"
 #include "visited_list_pool.h"
 
 #if defined(__SSE__)
@@ -712,7 +715,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     void
-    loadIndex(const std::string& location, SpaceInterface<dist_t>* s, size_t max_elements_i = 0) {
+    loadIndex(const std::string& location, SpaceInterface<dist_t>* s, const std::string pq_pivots_path = "",
+              const std::string pq_compressed_vectors_path = "", size_t max_elements_i = 0) {
+        std::cout << "begin load" << std::endl;
         std::ifstream input(location, std::ios::binary);
 
         if (!input.is_open())
@@ -810,7 +815,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
 
         input.close();
-
+        std::cout << "load pq"
+                  << "pq_compressed_vectors_path" << pq_compressed_vectors_path << "pq_pivots_path" << pq_pivots_path
+                  << std::endl;
+        loadPQ(pq_compressed_vectors_path, pq_pivots_path);
+        std::cout << "end of load" << std::endl;
         return;
     }
 
