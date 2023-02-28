@@ -116,13 +116,12 @@ do
     sync; echo 3 | sudo tee /proc/sys/vm/drop_caches;
     echo "./../build/cqy-benchmark/knowhere-benchmark --data_path $hdf5_name --index_path $index_path --index_type $parameterT --metric_type ${metric} --runner_type $task --log_path $log_path"
     ./../build/cqy-benchmark/knowhere-benchmark --data_path $hdf5_name --index_path $index_path --index_type $parameterT --metric_type ${metric} --runner_type $task --log_path $log_path
-    # if [ "$parameterT" == "HNSW" ]; then
-    #     if [ "$task" == "build" ]; then
-    #         mv pq* $index_dir
-    #     else
-    #         rm -rf pq*
-    #     fi
-    # fi
+    if [ "$parameterT" == "HNSW" ]; then
+        if [ "$task" == "build" ]; then
+            mv pq* $index_dir
+        fi
+        rm -rf pq*
+    fi
 done 
     
 

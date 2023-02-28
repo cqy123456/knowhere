@@ -4,12 +4,16 @@
 #include <cstdio>
 #include <iomanip>
 #include <random>
+#include <sstream>
 #include <thread>
 
 #include "cqy-benchmark/file_handler/bin_file_handler.h"
 #include "cqy-benchmark/file_handler/hdf5_handler.h"
 #include "cqy-benchmark/file_handler/json_handler.h"
+#include "faiss/IndexIVFPQFastScan.h"
+#include "faiss/IndexRefine.h"
 #include "faiss/index_factory.h"
+#include "faiss/index_io.h"
 #include "knowhere/dataset.h"
 #include "knowhere/factory.h"
 #include "knowhere/object.h"
@@ -261,6 +265,33 @@ BuildIndexTask(const std::string& index_type, const std::string& data_path, cons
         idx.Build(*ds, build_json);
         build_mem_usage = getPeakRSS() - start_mem;
         std::remove(raw_data_path.c_str());
+    } else if (index_type == "FASTSCANN") {
+        auto ds = IsBinaryType(index_type) ? data_reader.GetBaseData<true>() : data_reader.GetBaseData<false>();
+        auto base = (float*)ds->GetTensor();
+        std::string metric;
+        if (metric_type == knowhere::metric::IP) {
+            metric = faiss::METRIC_INNER_PRODUCT;
+        } else {
+            metric = faiss::METRIC_L2;
+        }
+        auto nlist = build_json["nlist"].get<int>();
+        auto m = std::ceil((int)ds->GetDim() / build_json["sub_dim"].get<int>());
+        auto by_residual = build_json["by_residual"].get<bool>();
+        std::stringstream namestream;
+        std::string index_name;
+        namestream << "IVF" << nlist << ",";
+        namestream << "PQ" << m << "x4fs";
+        namestream >> index_name;
+        std::cout << "building " << index_name << std::endl;
+
+        faiss::Index* index;
+        index = faiss::index_factory((int)ds->GetDim(), index_name.c_str());
+        auto fs_index = dynamic_cast<faiss::IndexIVFPQFastScan*>(index);
+        fs_index->by_residual = by_residual;
+        fs_index->train(ds->GetRows(), base);
+        fs_index->add(ds->GetRows(), base);
+        build_mem_usage = getPeakRSS() - start_mem;
+        faiss::write_index(fs_index, index_path.c_str());
     } else {
         // create memory index
         start_mem = getCurrentRSS();
@@ -280,6 +311,42 @@ BuildIndexTask(const std::string& index_type, const std::string& data_path, cons
     result_out << "build time:(s) " << build_time << std::endl;
     result_out << "mem usage:(MB) " << build_mem_usage << std::endl;
 }
+
+// void
+// FastScannSearchAccuracyTask((const std::string& index_type, const std::string& data_path, const std::string&
+// index_path,
+//                    const std::string& metric_type, std::ofstream& result_out) {
+//     result_out << "==============================================================="
+//                   "======================================================="
+//                << std::endl;
+//     result_out << "SearchAccuracyTask " << std::endl;
+//     result_out << "==============================================================="
+//                   "======================================================="
+//                << std::endl;
+//     HDF5Reader data_reader(data_path);
+//     auto start_mem = getCurrentRSS();
+//     // load raw data and construct a refine ivf_pq_scann index
+//     auto ds = IsBinaryType(index_type) ? data_reader.GetBaseData<true>() : data_reader.GetBaseData<false>();
+//     auto data = static_cast<float*>(ds->GetTensor());
+//     auto index = dynamic_cast<faiss::IndexIVFPQFastScan*>(faiss::read_index(index_path.c_str()));
+//     auto refine_index = faiss::IndexRefineFlat(index, static_cast<float*>(data));
+//     auto load_mem_usage = getCurrentRSS() - start_mem;
+//     result_out << "After loading the index, memory usage(MB): " << load_mem_usage << std::endl;
+
+//     // load query and gt
+//     auto qs = IsBinaryType(index_type) ? data_reader.GetQueryData<true>() : data_reader.GetQueryData<false>();
+//     auto gt = data_reader.GetKNNGT();
+
+//     auto search_json_list = ReadIndexParams(index_type, PARAMS_JSON::ACC_JSON);
+
+//     for (knowhere::Json::iterator it = search_json_list.begin(); it != search_json_list.end(); ++it) {
+//         auto search_json = *it;
+//         result_out << "Search Parameters: " << search_json.dump() << std::endl;
+
+//         auto ids = new int64_t[nq * search_k];
+//         auto dis = new float[nq * search_k];
+//     }
+// }
 
 void
 SearchAccuracyTask(const std::string& index_type, const std::string& data_path, const std::string& index_path,
@@ -327,6 +394,9 @@ SearchAccuracyTask(const std::string& index_type, const std::string& data_path, 
 void
 SearchPerformanceTask(const std::string& index_type, const std::string& data_path, const std::string& index_path,
                       const std::string& metric_type, std::ofstream& result_out) {
+    if (index_type == "FASTSCANN") {
+        assert(false && "fastscann not support performance test");
+    }
     result_out << "==============================================================="
                   "======================================================="
                << std::endl;
