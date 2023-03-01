@@ -13,7 +13,7 @@
 #include "faiss/IndexRefine.h"
 #include "faiss/index_factory.h"
 #include "faiss/index_io.h"
-#include "faiss_hdf5_handler.h"
+#include "hdf5_operator.h"
 #include "util/evaluate.h"
 
 using namespace std::chrono;
@@ -62,7 +62,7 @@ CalcKNNRecall(const int32_t* gt_ids, const int64_t* ids, int64_t nq, int32_t gt_
 
 void
 build_and_save(const std::string& fname, const std::string& index_file) {
-    scann_test::HDF5Reader data_reader(fname);
+    HDF5_file::HDF5Reader data_reader(fname);
     int32_t ndim, nb;
     void* data = nullptr;
     data_reader.GetBaseData(nb, ndim, data);
@@ -106,7 +106,7 @@ build_and_save(const std::string& fname, const std::string& index_file) {
 
 void
 load_and_search(const std::string& data_file, const std::string& index_file) {
-    scann_test::HDF5Reader data_reader(data_file);
+    HDF5_file::HDF5Reader data_reader(data_file);
     int32_t ndim, nb;
     void* data = nullptr;
     data_reader.GetBaseData(nb, ndim, data);

@@ -11,10 +11,10 @@
 #include <random>
 #include <unordered_set>
 
+#include "../../src/io/FaissIO.h"
 #include "diskann/concurrent_queue.h"
 #include "diskann/pq_table.h"
 #include "hnswlib.h"
-#include "io/FaissIO.h"
 #include "knowhere/bitsetview.h"
 #include "neighbor.h"
 #include "space_ip.h"
@@ -46,26 +46,15 @@ aggregate_coords(const tableint* ids, const _u64 n_ids, const _u8* all_coords, c
 
 void
 pq_dist_lookup(const _u8* pq_ids, const _u64 n_pts, const _u64 pq_nchunks, const float* pq_dists, float* dists_out) {
-#if defined(__ARM_NEON__) || defined(__aarch64__)
-    __builtin_prefetch((char*)dists_out, 1, 3);
-    __builtin_prefetch((char*)pq_ids, 0, 3);
-    __builtin_prefetch((char*)(pq_ids + 64), 0, 3);
-    __builtin_prefetch((char*)(pq_ids + 128), 0, 3);
-#else
     _mm_prefetch((char*)dists_out, _MM_HINT_T0);
     _mm_prefetch((char*)pq_ids, _MM_HINT_T0);
     _mm_prefetch((char*)(pq_ids + 64), _MM_HINT_T0);
     _mm_prefetch((char*)(pq_ids + 128), _MM_HINT_T0);
-#endif
     memset(dists_out, 0, n_pts * sizeof(float));
     for (_u64 chunk = 0; chunk < pq_nchunks; chunk++) {
         const float* chunk_dists = pq_dists + 256 * chunk;
         if (chunk < pq_nchunks - 1) {
-#if defined(__ARM_NEON__) || defined(__aarch64__)
-            __builtin_prefetch((char*)(chunk_dists + 256), 0, 3);
-#else
             _mm_prefetch((char*)(chunk_dists + 256), _MM_HINT_T0);
-#endif
         }
         for (_u64 idx = 0; idx < n_pts; idx++) {
             _u8 pq_centerid = pq_ids[pq_nchunks * idx + chunk];
@@ -83,8 +72,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     HierarchicalNSW(SpaceInterface<dist_t>* s, const std::string& location, bool nmslib = false,
-                    size_t max_elements = 0) {
-        loadIndex(location, s, max_elements);
+                    size_t max_elements = 0, const std::string& pq_pivots = "",
+                    const std::string& pq_compressed_vec = "") {
+        loadIndex(location, s, max_elements, pq_pivots, pq_compressed_vec);
     }
 
     HierarchicalNSW(SpaceInterface<dist_t>* s, size_t max_elements, size_t M = 16, size_t ef_construction = 200,
@@ -341,9 +331,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         auto& lookup_table = pq_scratch.lookup_table;
         auto& scratch = pq_scratch.scratch;
         auto& dist_scratch = pq_scratch.dist_scratch;
+
         // auto lookup_table = new float[256 * (*(size_t*)space_->get_dist_func_param())];
         // auto scratch = new _u8[256 * maxM0_];
         // auto dist_scratch = new float[maxM0_];
+
         float* query = (float*)data_point;
         pq_table_->populate_chunk_distances(query, lookup_table);
 
@@ -384,29 +376,29 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 //                 }
                 // #endif
                 tableint v = list[i];
-                if (visited[v]) {
+                if (!visited[v]) {
                     if (feder_result != nullptr) {
                         feder_result->visit_info_.AddVisitRecord(0, u, v, -1.0);
                         feder_result->id_set_.insert(u);
                         feder_result->id_set_.insert(v);
                     }
-                    continue;
-                }
-                visited[v] = true;
-                // dist_t dist = fstdistfunc_(data_point, getDataByInternalId(v), dist_func_param_);
-                dist_t dist = dist_scratch[i - 1];
-                if (feder_result != nullptr) {
-                    feder_result->visit_info_.AddVisitRecord(0, u, v, dist);
-                    feder_result->id_set_.insert(u);
-                    feder_result->id_set_.insert(v);
-                }
-                int status = Neighbor::kValid;
-                if (has_deletions && bitset.test((int64_t)v)) {
-                    status = Neighbor::kInvalid;
-                }
 
-                Neighbor nn(v, dist, status);
-                retset.insert(nn);
+                    visited[v] = true;
+                    // dist_t dist = fstdistfunc_(data_point, getDataByInternalId(v), dist_func_param_);
+                    dist_t dist = dist_scratch[i - 1];
+                    if (feder_result != nullptr) {
+                        feder_result->visit_info_.AddVisitRecord(0, u, v, dist);
+                        feder_result->id_set_.insert(u);
+                        feder_result->id_set_.insert(v);
+                    }
+                    int status = Neighbor::kValid;
+                    if (has_deletions && bitset.test((int64_t)v)) {
+                        status = Neighbor::kInvalid;
+                    }
+
+                    Neighbor nn(v, dist, status);
+                    retset.insert(nn);
+                }
                 //                 if (retset.insert(nn)) {
                 // #if defined(USE_PREFETCH)
                 //                     _mm_prefetch(get_linklist0(v), _MM_HINT_T0);
@@ -717,7 +709,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     void
     loadIndex(const std::string& location, SpaceInterface<dist_t>* s, const std::string pq_pivots_path = "",
               const std::string pq_compressed_vectors_path = "", size_t max_elements_i = 0) {
-        std::cout << "begin load" << std::endl;
         std::ifstream input(location, std::ios::binary);
 
         if (!input.is_open())
@@ -751,6 +742,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         data_size_ = s->get_data_size();
         fstdistfunc_ = s->get_dist_func();
         dist_func_param_ = s->get_dist_func_param();
+
+        space_ = s;
 
         auto pos = input.tellg();
 
@@ -815,11 +808,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
 
         input.close();
-        std::cout << "load pq"
-                  << "pq_compressed_vectors_path" << pq_compressed_vectors_path << "pq_pivots_path" << pq_pivots_path
-                  << std::endl;
         loadPQ(pq_compressed_vectors_path, pq_pivots_path);
-        std::cout << "end of load" << std::endl;
         return;
     }
 
@@ -1252,9 +1241,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 searchBaseLayerST<true, true>(currObj, query_data, std::max(ef, search_k), bitset, feder_result);
         } else {
             top_candidates =
-                searchBaseLayerST<false, true>(currObj, query_data, std::max(ef, search_k), bitset, feder_result);
+                searchBaseLayerST<false, false>(currObj, query_data, std::max(ef, search_k), bitset, feder_result);
         }
-        // std::vector<std::pair<dist_t, tableint>> result;
+
         std::vector<std::pair<dist_t, labeltype>> result;
 
         for (auto i = 0; i < top_candidates.size(); i++) {
@@ -1264,6 +1253,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
         std::sort(result.begin(), result.end());
         result.resize(std::min(k, top_candidates.size()));
+        // std::vector<std::pair<dist_t, labeltype>> result;
         // size_t len = std::min(k, top_candidates.size());
         // result.reserve(len);
         // for (int i = 0; i < len; ++i) {

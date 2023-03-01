@@ -23,7 +23,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
         "-O0 -g -Xcompiler=-w -Xcompiler=-fPIC ${CMAKE_CUDA_FLAGS}")
   endif()
 else()
-  set(CMAKE_CXX_FLAGS "-O2 -Wall -fPIC ${CMAKE_CXX_FLAGS}")
+  set(CMAKE_CXX_FLAGS "-Ofast  -march=native -Wall -fPIC ${CMAKE_CXX_FLAGS}")
   if(USE_CUDA)
     set(CMAKE_CUDA_FLAGS
         "-O2 -Xcompiler=-w -Xcompiler=-fPIC ${CMAKE_CUDA_FLAGS}")
