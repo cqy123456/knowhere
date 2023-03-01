@@ -11,6 +11,7 @@
 #include "diskann/partition_and_pq.h"
 #include "hdf5_operator.h"
 #include "hnswlib/hnswalg.h"
+#include "knowhere/comp/knowhere_config.h"
 const static std::string graph_index_fname = "hnsw.bin";
 const static std::string pq_pivots_fname = "pq_pivots_path";
 const static std::string pq_compressed_vectors_fname = "pq_compressed_vectors_path";
@@ -187,6 +188,7 @@ load_and_Search(const std::string& data_path, const std::string& index_path, con
 
 int
 main(int argc, char** argv) {
+    knowhere::KnowhereConfig::SetSimdType(knowhere::KnowhereConfig::SimdType::SSE4_2);
     // std::string data_path = "/data/knowhere-2.0/knowhere/cqy-benchmark/tests/data/gist-960-euclidean.hdf5";
     // std::string index_path = "/data/knowhere-2.0/knowhere/thirdparty/hnswlib/index/hnsw.bin";
     // std::string pq_path = "/data/knowhere-2.0/knowhere/thirdparty/hnswlib/index/";

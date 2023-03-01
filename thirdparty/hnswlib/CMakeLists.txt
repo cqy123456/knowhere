@@ -35,7 +35,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     include_directories(../faiss/faiss/src)
     include_directories(../faiss/)
     include_directories(../../include)
-    # include_directories(../../src)
+    include_directories(../../src)
     include_directories(../)
     include_directories(../../cqy_benchmark)
 

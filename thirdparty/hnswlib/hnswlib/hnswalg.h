@@ -357,24 +357,25 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         } else {
             retset.insert(Neighbor(ep_id, std::numeric_limits<dist_t>::max(), Neighbor::kInvalid));
         }
-
+        std::vector<std::pair<dist_t, tableint>> result;
+        result.reserve(4096);
         visited[ep_id] = true;
         while (retset.has_next()) {
             auto [u, d, s] = retset.pop();
+#if defined(USE_PREFETCH)
+            _mm_prefetch(get_linklist0(u), _MM_HINT_T0);
+            _mm_prefetch(getDataByInternalId(u), _MM_HINT_T0);
+
+#endif
             tableint* list = (tableint*)get_linklist0(u);
             int size = list[0];
-
+            result.emplace_back(fstdistfunc_(query, getDataByInternalId(u), dist_func_param_), u);
             if constexpr (collect_metrics) {
                 metric_hops++;
                 metric_distance_computations += size;
             }
             compute_dists(list + 1, list[0], dist_scratch);
             for (size_t i = 1; i <= size; ++i) {
-                // #if defined(USE_PREFETCH)
-                //                 if (i + 1 <= size) {
-                //                     _mm_prefetch(getDataByInternalId(list[i + 1]), _MM_HINT_T0);
-                //                 }
-                // #endif
                 tableint v = list[i];
                 if (!visited[v]) {
                     if (feder_result != nullptr) {
@@ -407,16 +408,17 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
         }
 
-        std::vector<std::pair<dist_t, tableint>> ans(retset.size());
-        for (int i = 0; i < retset.size(); ++i) {
-            ans[i] = {retset[i].distance, retset[i].id};
-        }
+        // std::vector<std::pair<dist_t, tableint>> ans(retset.size());
+        // for (int i = 0; i < retset.size(); ++i) {
+        //     ans[i] = {retset[i].distance, retset[i].id};
+        // }
         // delete[] lookup_table;
         // delete[] (char*)scratch;
         // delete[] dist_scratch;
         this->scratch_pool_->push(pq_scratch);
         this->scratch_pool_->push_notify_all();
-        return ans;
+        // return ans;
+        return result;
     }
 
     std::vector<tableint>
@@ -1244,21 +1246,29 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 searchBaseLayerST<false, false>(currObj, query_data, std::max(ef, search_k), bitset, feder_result);
         }
 
-        std::vector<std::pair<dist_t, labeltype>> result;
-
-        for (auto i = 0; i < top_candidates.size(); i++) {
-            result.emplace_back(
-                fstdistfunc_(query_data, getDataByInternalId(top_candidates[i].second), dist_func_param_),
-                (labeltype)top_candidates[i].second);
-        }
-        std::sort(result.begin(), result.end());
-        result.resize(std::min(k, top_candidates.size()));
         // std::vector<std::pair<dist_t, labeltype>> result;
-        // size_t len = std::min(k, top_candidates.size());
-        // result.reserve(len);
-        // for (int i = 0; i < len; ++i) {
-        //     result.emplace_back(top_candidates[i].first, (labeltype)top_candidates[i].second);
-        // }
+        //  refine:
+        //  for (auto i = 0; i < top_candidates.size(); i++) {
+        //      result.emplace_back(
+        //          fstdistfunc_(query_data, getDataByInternalId(top_candidates[i].second), dist_func_param_),
+        //          (labeltype)top_candidates[i].second);
+        //  }
+        //  std::sort(result.begin(), result.end());
+        //  result.resize(std::min(k, top_candidates.size()));
+        //
+        //  std::vector<std::pair<dist_t, labeltype>> result;
+        //  size_t len = std::min(k, top_candidates.size());
+        //  result.reserve(len);
+        //  for (int i = 0; i < len; ++i) {
+        //      result.emplace_back(top_candidates[i].first, (labeltype)top_candidates[i].second);
+        //  }
+        std::sort(top_candidates.begin(), top_candidates.end());
+
+        std::vector<std::pair<dist_t, labeltype>> result;
+        size_t len = std::min(k, top_candidates.size());
+        for (int i = 0; i < len; ++i) {
+            result.emplace_back(top_candidates[i].first, (labeltype)top_candidates[i].second);
+        }
         return result;
     };
 
