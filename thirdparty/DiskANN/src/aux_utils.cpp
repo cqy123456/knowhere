@@ -958,8 +958,7 @@ namespace diskann {
     size_t num_pq_chunks =
         (size_t) (std::floor)(_u64(pq_code_size_limit / points_num));
 
-    // num_pq_chunks = num_pq_chunks <= 0 ? 1 : num_pq_chunks;
-    num_pq_chunks = 127;
+    num_pq_chunks = num_pq_chunks <= 0 ? 1 : num_pq_chunks;
     num_pq_chunks = num_pq_chunks > dim ? dim : num_pq_chunks;
 
     LOG(DEBUG) << "Compressing " << dim << "-dimensional data into "
