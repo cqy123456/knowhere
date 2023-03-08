@@ -45,7 +45,7 @@ namespace {
 
 constexpr uint32_t kNumRows = 10000;
 constexpr uint32_t kNumQueries = 10;
-constexpr uint32_t kDim = 56;
+constexpr uint32_t kDim = 256;
 constexpr float kMax = 100;
 constexpr uint32_t kK = 10;
 constexpr uint32_t kBigK = kNumRows * 2;
@@ -57,7 +57,7 @@ std::string kRawDataPath = kDir + "/raw_data";
 std::string kIpIndexDir = kDir + "/ip_index";
 std::string kL2IndexDir = kDir + "/l2_index";
 
-const knowhere::DiskANNBuildConfig build_conf{kRawDataPath, 50, 90, 0.2, 0.2, 4, 0};
+const knowhere::DiskANNBuildConfig build_conf{kRawDataPath, 50, 90, 0.2, 0.2, 1, 0};
 const knowhere::DiskANNPrepareConfig prep_conf{4, 0, false, false};
 const knowhere::DiskANNQueryConfig query_conf{kK, kK * 10, 3};
 const knowhere::DiskANNQueryByRangeConfig l2_range_search_conf{kL2Radius, 10, 10000, 3};

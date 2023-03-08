@@ -17,7 +17,8 @@
 #include <string>
 #include <vector>
 
-#if defined(RELEASE_UNUSED_TCMALLOC_MEMORY_AT_CHECKPOINTS) && defined(DISKANN_BUILD)
+#if defined(RELEASE_UNUSED_TCMALLOC_MEMORY_AT_CHECKPOINTS) && \
+    defined(DISKANN_BUILD)
 #include "gperftools/malloc_extension.h"
 #endif
 
@@ -44,18 +45,18 @@
 // block size for reading/ processing large files and matrices in blocks
 #define BLOCK_SIZE 1000000
 
-//#define SAVE_INFLATED_PQ true
+// #define SAVE_INFLATED_PQ true
 
 template<typename T>
 void gen_random_slice(const std::string base_file,
                       const std::string output_file, double sampling_rate) {
   _u64            read_blk_size = 64 * 1024 * 1024;
   cached_ifstream base_reader(base_file.c_str(), read_blk_size);
-  std::ofstream sample_writer(output_file.c_str(), std::ios::binary);
+  std::ofstream   sample_writer(output_file.c_str(), std::ios::binary);
 
   std::random_device
-               rd;  // Will be used to obtain a seed for the random number engine
-  auto         x = rd();
+       rd;  // Will be used to obtain a seed for the random number engine
+  auto x = rd();
   std::mt19937 generator(
       x);  // Standard mersenne_twister_engine seeded with rd()
   std::uniform_real_distribution<float> distribution(0, 1);
@@ -67,7 +68,7 @@ void gen_random_slice(const std::string base_file,
   base_reader.read((char *) &npts_u32, sizeof(uint32_t));
   base_reader.read((char *) &nd_u32, sizeof(uint32_t));
   LOG(DEBUG) << "Loading base " << base_file << ". #points: " << npts_u32
-                << ". #dim: " << nd_u32 << ".";
+             << ". #dim: " << nd_u32 << ".";
   sample_writer.write((char *) &num_sampled_pts_u32, sizeof(uint32_t));
   sample_writer.write((char *) &nd_u32, sizeof(uint32_t));
 
@@ -149,13 +150,13 @@ template<typename T>
 void gen_random_slice(const T *inputdata, size_t npts, size_t ndims,
                       double p_val, float *&sampled_data, size_t &slice_size) {
   std::vector<std::vector<float>> sampled_vectors;
-  const T *                       cur_vector_T;
+  const T                        *cur_vector_T;
 
   p_val = p_val < 1 ? p_val : 1;
 
   std::random_device
-               rd;  // Will be used to obtain a seed for the random number engine
-  size_t       x = rd();
+         rd;  // Will be used to obtain a seed for the random number engine
+  size_t x = rd();
   std::mt19937 generator(
       (unsigned) x);  // Standard mersenne_twister_engine seeded with rd()
   std::uniform_real_distribution<float> distribution(0, 1);
@@ -193,17 +194,19 @@ int generate_pq_pivots(const float *passed_train_data, size_t num_train,
     return -1;
   }
 
-  std::unique_ptr<float[]> train_data =
-      std::make_unique<float[]>(num_train * dim);
-  std::memcpy(train_data.get(), passed_train_data,
-              num_train * dim * sizeof(float));
+  // std::unique_ptr<float[]> train_data =
+  //     std::make_unique<float[]>(num_train * dim);
+  // std::memcpy(train_data.get(), passed_train_data,
+  //             num_train * dim * sizeof(float));
 
-  for (uint64_t i = 0; i < num_train; i++) {
-    for (uint64_t j = 0; j < dim; j++) {
-      if (passed_train_data[i * dim + j] != train_data[i * dim + j])
-        LOG(ERROR) << "error in copy";
-    }
-  }
+  // for (uint64_t i = 0; i < num_train; i++) {
+  //   for (uint64_t j = 0; j < dim; j++) {
+  //     if (passed_train_data[i * dim + j] != train_data[i * dim + j])
+  //       LOG(ERROR) << "error in copy";
+  //   }
+  // }
+
+  float *train_data = const_cast<float *>(passed_train_data);
 
   std::unique_ptr<float[]> full_pivot_data;
 
@@ -212,7 +215,7 @@ int generate_pq_pivots(const float *passed_train_data, size_t num_train,
     diskann::load_bin<float>(pq_pivots_path, full_pivot_data, file_num_centers,
                              file_dim);
     if (file_dim == dim && file_num_centers == num_centers) {
-      LOG(ERROR)<< "PQ pivot file exists. Not generating again";
+      LOG(ERROR) << "PQ pivot file exists. Not generating again";
       return -1;
     }
   }
@@ -294,13 +297,13 @@ int generate_pq_pivots(const float *passed_train_data, size_t num_train,
                               (unsigned) bin_to_dims[b - 1].size());
   }
   chunk_offsets.push_back(dim);
-  
+
   std::stringstream rearrange_stream;
   rearrange_stream << "\nCross-checking rearranged order of coordinates:"
-                << std::endl;
+                   << std::endl;
   for (auto p : rearrangement)
     rearrange_stream << p << " ";
-  
+
   LOG(DEBUG) << rearrange_stream.str();
 
   full_pivot_data.reset(new float[num_centers * dim]);
@@ -318,12 +321,12 @@ int generate_pq_pivots(const float *passed_train_data, size_t num_train,
         std::make_unique<uint32_t[]>(num_train);
 
     LOG(DEBUG) << "Processing chunk " << i << " with dimensions ["
-                  << chunk_offsets[i] << ", " << chunk_offsets[i + 1] << ")";
+               << chunk_offsets[i] << ", " << chunk_offsets[i + 1] << ")";
 
 #pragma omp parallel for schedule(static, 65536)
     for (int64_t j = 0; j < (_s64) num_train; j++) {
       std::memcpy(cur_data.get() + j * cur_chunk_size,
-                  train_data.get() + j * dim + chunk_offsets[i],
+                  train_data + j * dim + chunk_offsets[i],
                   cur_chunk_size * sizeof(float));
     }
 
@@ -343,7 +346,7 @@ int generate_pq_pivots(const float *passed_train_data, size_t num_train,
 
   diskann::save_bin<float>(pq_pivots_path.c_str(), full_pivot_data.get(),
                            (size_t) num_centers, dim);
-  std::string centroids_path = 
+  std::string centroids_path =
       diskann::get_pq_centroid_filename(pq_pivots_path);
   diskann::save_bin<float>(centroids_path.c_str(), centroid.get(), (size_t) dim,
                            1);
@@ -351,7 +354,7 @@ int generate_pq_pivots(const float *passed_train_data, size_t num_train,
       diskann::get_pq_rearrangement_perm_filename(pq_pivots_path);
   diskann::save_bin<uint32_t>(rearrangement_path.c_str(), rearrangement.data(),
                               rearrangement.size(), 1);
-  std::string chunk_offsets_path = 
+  std::string chunk_offsets_path =
       diskann::get_pq_chunk_offsets_filename(pq_pivots_path);
   diskann::save_bin<uint32_t>(chunk_offsets_path.c_str(), chunk_offsets.data(),
                               chunk_offsets.size(), 1);
@@ -390,7 +393,7 @@ int generate_pq_data_from_pivots(const std::string data_file,
   } else {
     uint64_t numr, numc;
 
-    std::string centroids_path = 
+    std::string centroids_path =
         diskann::get_pq_centroid_filename(pq_pivots_path);
     diskann::load_bin<float>(centroids_path.c_str(), centroid, numr, numc);
 
@@ -404,11 +407,11 @@ int generate_pq_data_from_pivots(const std::string data_file,
     diskann::load_bin<uint32_t>(rearrangement_path.c_str(), rearrangement, numr,
                                 numc);
     if (numr != dim || numc != 1) {
-      LOG(ERROR)  << "Error reading rearrangement file.";
+      LOG(ERROR) << "Error reading rearrangement file.";
       throw diskann::ANNException("Error reading rearrangement file.", -1,
                                   __FUNCSIG__, __FILE__, __LINE__);
     }
-    std::string chunk_offsets_path = 
+    std::string chunk_offsets_path =
         diskann::get_pq_chunk_offsets_filename(pq_pivots_path);
     diskann::load_bin<uint32_t>(chunk_offsets_path.c_str(), chunk_offsets, numr,
                                 numc);
@@ -486,8 +489,7 @@ int generate_pq_data_from_pivots(const std::string data_file,
     diskann::convert_types<T, float>(block_data_T.get(), block_data_float.get(),
                                      cur_blk_size, dim);
 
-    LOG(DEBUG) << "Processing points  [" << start_id << ", " << end_id
-                  << ")..";
+    LOG(DEBUG) << "Processing points  [" << start_id << ", " << end_id << ")..";
 
 #pragma omp parallel for firstprivate(block_data_tmp) schedule(static, 8192)
     for (uint64_t p = 0; p < cur_blk_size; p++) {
@@ -495,8 +497,7 @@ int generate_pq_data_from_pivots(const std::string data_file,
         block_data_float[p * dim + d] -= centroid[d];
       }
       for (uint64_t d = 0; d < dim; d++) {
-        block_data_tmp[d] =
-            block_data_float[p * dim + rearrangement[d]];
+        block_data_tmp[d] = block_data_float[p * dim + rearrangement[d]];
       }
       for (uint64_t d = 0; d < dim; d++) {
         block_data_float[d] = block_data_tmp[d];
@@ -566,7 +567,8 @@ int generate_pq_data_from_pivots(const std::string data_file,
   }
 // Gopal. Splitting diskann_dll into separate DLLs for search and build.
 // This code should only be available in the "build" DLL.
-#if defined(RELEASE_UNUSED_TCMALLOC_MEMORY_AT_CHECKPOINTS) && defined(DISKANN_BUILD)
+#if defined(RELEASE_UNUSED_TCMALLOC_MEMORY_AT_CHECKPOINTS) && \
+    defined(DISKANN_BUILD)
   MallocExtension::instance()->ReleaseFreeMemory();
 #endif
   compressed_file_writer.close();
@@ -589,7 +591,7 @@ int estimate_cluster_sizes(float *test_data_float, size_t num_test,
   }
 
   size_t block_size = num_test <= BLOCK_SIZE ? num_test : BLOCK_SIZE;
-  _u32 * block_closest_centers = new _u32[block_size * k_base];
+  _u32  *block_closest_centers = new _u32[block_size * k_base];
   float *block_data_float;
 
   size_t num_blocks = DIV_ROUND_UP(num_test, block_size);
@@ -693,7 +695,7 @@ int shard_data_into_clusters(const std::string data_file, float *pivots,
     for (size_t p = 0; p < cur_blk_size; p++) {
       for (size_t p1 = 0; p1 < k_base; p1++) {
         size_t   shard_id = block_closest_centers[p * k_base + p1];
-        uint32_t original_point_map_id = (uint32_t)(start_id + p);
+        uint32_t original_point_map_id = (uint32_t) (start_id + p);
         shard_data_writer[shard_id].write(
             (char *) (block_data_T.get() + p * dim), sizeof(T) * dim);
         shard_idmap_writer[shard_id].write((char *) &original_point_map_id,
@@ -703,7 +705,7 @@ int shard_data_into_clusters(const std::string data_file, float *pivots,
     }
   }
 
-  size_t total_count = 0;
+  size_t            total_count = 0;
   std::stringstream shard_size_stream;
   shard_size_stream << "Actual shard sizes: ";
   for (size_t i = 0; i < num_centers; i++) {
@@ -718,10 +720,9 @@ int shard_data_into_clusters(const std::string data_file, float *pivots,
     shard_idmap_writer[i].close();
   }
   LOG(INFO) << shard_size_stream.str();
-  LOG(INFO) << "Partitioned " << num_points
-            << " with replication factor " << k_base << " to get "
-            << total_count << " points across " << num_centers 
-            << " shards ";
+  LOG(INFO) << "Partitioned " << num_points << " with replication factor "
+            << k_base << " to get " << total_count << " points across "
+            << num_centers << " shards ";
   return 0;
 }
 
@@ -790,7 +791,7 @@ int shard_data_into_clusters_only_ids(const std::string data_file,
     for (size_t p = 0; p < cur_blk_size; p++) {
       for (size_t p1 = 0; p1 < k_base; p1++) {
         size_t   shard_id = block_closest_centers[p * k_base + p1];
-        uint32_t original_point_map_id = (uint32_t)(start_id + p);
+        uint32_t original_point_map_id = (uint32_t) (start_id + p);
         shard_idmap_writer[shard_id].write((char *) &original_point_map_id,
                                            sizeof(uint32_t));
         shard_counts[shard_id]++;
@@ -798,7 +799,7 @@ int shard_data_into_clusters_only_ids(const std::string data_file,
     }
   }
 
-  size_t total_count = 0;
+  size_t            total_count = 0;
   std::stringstream shard_size_stream;
   shard_size_stream << "Actual shard sizes: ";
   for (size_t i = 0; i < num_centers; i++) {
@@ -810,9 +811,9 @@ int shard_data_into_clusters_only_ids(const std::string data_file,
     shard_idmap_writer[i].close();
   }
   LOG(INFO) << shard_size_stream.str();
-  LOG(INFO) << "Partitioned " << num_points
-            << " with replication factor " << k_base << " to get "
-            << total_count << " points across " << num_centers << " shards ";
+  LOG(INFO) << "Partitioned " << num_points << " with replication factor "
+            << k_base << " to get " << total_count << " points across "
+            << num_centers << " shards ";
   return 0;
 }
 
@@ -859,7 +860,7 @@ int retrieve_shard_data_from_ids(const std::string data_file,
                      sizeof(T) * (cur_blk_size * dim));
 
     for (size_t p = 0; p < cur_blk_size; p++) {
-      uint32_t original_point_map_id = (uint32_t)(start_id + p);
+      uint32_t original_point_map_id = (uint32_t) (start_id + p);
       if (cur_pos == shard_size)
         break;
       if (original_point_map_id == shard_ids[cur_pos]) {
@@ -989,9 +990,9 @@ int partition_with_ram_budget(const std::string data_file,
                            train_dim, k_base, cluster_sizes);
 
     for (auto &p : cluster_sizes) {
-      p = (_u64)(p /
-                 sampling_rate);  // to account for the fact that p is the size
-                                  // of the shard over the testing sample.
+      p = (_u64) (p /
+                  sampling_rate);  // to account for the fact that p is the size
+                                   // of the shard over the testing sample.
       double cur_shard_ram_estimate =
           diskann::estimate_ram_usage(p, train_dim, sizeof(T), graph_degree);
 
@@ -999,15 +1000,15 @@ int partition_with_ram_budget(const std::string data_file,
         max_ram_usage = cur_shard_ram_estimate;
     }
     LOG(DEBUG) << "With " << num_parts << " parts, max estimated RAM usage: "
-                  << max_ram_usage / (1024 * 1024 * 1024)
-                  << "GB, budget given is " << ram_budget;
+               << max_ram_usage / (1024 * 1024 * 1024) << "GB, budget given is "
+               << ram_budget;
     if (max_ram_usage > 1024 * 1024 * 1024 * ram_budget) {
       fit_in_ram = false;
       num_parts += 2;
     }
   }
 
-  LOG(DEBUG)<< "Saving global k-center pivots";
+  LOG(DEBUG) << "Saving global k-center pivots";
   diskann::save_bin<float>(output_file.c_str(), pivot_data, (size_t) num_parts,
                            train_dim);
 
@@ -1022,17 +1023,17 @@ int partition_with_ram_budget(const std::string data_file,
 // Instantations of supported templates
 
 template void DISKANN_DLLEXPORT
-              gen_random_slice<int8_t>(const std::string base_file,
+gen_random_slice<int8_t>(const std::string base_file,
                          const std::string output_file, double sampling_rate);
-template void DISKANN_DLLEXPORT gen_random_slice<uint8_t>(
-    const std::string base_file, const std::string output_file,
-    double sampling_rate);
 template void DISKANN_DLLEXPORT
-              gen_random_slice<float>(const std::string base_file,
+gen_random_slice<uint8_t>(const std::string base_file,
+                          const std::string output_file, double sampling_rate);
+template void DISKANN_DLLEXPORT
+gen_random_slice<float>(const std::string base_file,
                         const std::string output_file, double sampling_rate);
 
 template void DISKANN_DLLEXPORT
-              gen_random_slice<float>(const float *inputdata, size_t npts, size_t ndims,
+gen_random_slice<float>(const float *inputdata, size_t npts, size_t ndims,
                         double p_val, float *&sampled_data, size_t &slice_size);
 template void DISKANN_DLLEXPORT gen_random_slice<uint8_t>(
     const uint8_t *inputdata, size_t npts, size_t ndims, double p_val,

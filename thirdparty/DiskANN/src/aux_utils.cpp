@@ -10,7 +10,8 @@
 #include <string>
 #include <vector>
 
-#if defined(RELEASE_UNUSED_TCMALLOC_MEMORY_AT_CHECKPOINTS) && defined(DISKANN_BUILD)
+#if defined(RELEASE_UNUSED_TCMALLOC_MEMORY_AT_CHECKPOINTS) && \
+    defined(DISKANN_BUILD)
 #include "gperftools/malloc_extension.h"
 #endif
 
@@ -61,7 +62,7 @@ namespace diskann {
     }
 
     size_t num_blocks = DIV_ROUND_UP(fsize, read_blk_size);
-    char * dump = new char[read_blk_size];
+    char  *dump = new char[read_blk_size];
     for (_u64 i = 0; i < num_blocks; i++) {
       size_t cur_block_size = read_blk_size > fsize - (i * read_blk_size)
                                   ? fsize - (i * read_blk_size)
@@ -69,8 +70,8 @@ namespace diskann {
       reader.read(dump, cur_block_size);
       writer.write(dump, cur_block_size);
     }
-//    reader.close();
-//    writer.close();
+    //    reader.close();
+    //    writer.close();
 
     delete[] dump;
     std::vector<_u64> new_meta;
@@ -238,7 +239,7 @@ namespace diskann {
   T *load_warmup(MemoryMappedFiles &files, const std::string &cache_warmup_file,
                  uint64_t &warmup_num, uint64_t warmup_dim,
                  uint64_t warmup_aligned_dim) {
-    T *      warmup = nullptr;
+    T       *warmup = nullptr;
     uint64_t file_dim, file_aligned_dim;
 
     if (files.fileExists(cache_warmup_file)) {
@@ -271,7 +272,7 @@ namespace diskann {
   template<typename T>
   T *load_warmup(const std::string &cache_warmup_file, uint64_t &warmup_num,
                  uint64_t warmup_dim, uint64_t warmup_aligned_dim) {
-    T *      warmup = nullptr;
+    T       *warmup = nullptr;
     uint64_t file_dim, file_aligned_dim;
 
     if (file_exists(cache_warmup_file)) {
@@ -400,7 +401,7 @@ namespace diskann {
     }
 
     LOG(INFO) << "Max input width: " << max_input_width
-                  << ", output width: " << output_width;
+              << ", output width: " << output_width;
 
     merged_vamana_writer.write((char *) &output_width, sizeof(unsigned));
     std::ofstream medoid_writer(medoids_file.c_str(), std::ios::binary);
@@ -514,8 +515,8 @@ namespace diskann {
         estimate_ram_usage(base_num, base_dim, sizeof(T), R);
     if (full_index_ram < ram_budget * 1024 * 1024 * 1024) {
       LOG(INFO) << "Full index fits in RAM budget, should consume at most "
-                    << full_index_ram / (1024 * 1024 * 1024)
-                    << "GiBs, so building in one shot";
+                << full_index_ram / (1024 * 1024 * 1024)
+                << "GiBs, so building in one shot";
       diskann::Parameters paras;
       paras.Set<unsigned>("L", (unsigned) L);
       paras.Set<unsigned>("R", (unsigned) R);
@@ -618,8 +619,8 @@ namespace diskann {
 
     while (!stop_flag) {
       std::vector<int64_t> tuning_sample_result_ids_64(tuning_sample_num, 0);
-      std::vector<float>    tuning_sample_result_dists(tuning_sample_num, 0);
-      diskann::QueryStats * stats = new diskann::QueryStats[tuning_sample_num];
+      std::vector<float>   tuning_sample_result_dists(tuning_sample_num, 0);
+      diskann::QueryStats *stats = new diskann::QueryStats[tuning_sample_num];
 
       auto s = std::chrono::high_resolution_clock::now();
 #pragma omp parallel for schedule(dynamic, 1) num_threads(nthreads)
@@ -627,8 +628,8 @@ namespace diskann {
         pFlashIndex->cached_beam_search(
             tuning_sample + (i * tuning_sample_aligned_dim), 1, L,
             tuning_sample_result_ids_64.data() + (i * 1),
-            tuning_sample_result_dists.data() + (i * 1), cur_bw, 
-            false, stats + i);
+            tuning_sample_result_dists.data() + (i * 1), cur_bw, false,
+            stats + i);
       }
       auto e = std::chrono::high_resolution_clock::now();
       std::chrono::duration<double> diff = e - s;
@@ -646,7 +647,7 @@ namespace diskann {
       if (qps > max_qps && lat_999 < (15000) + mean_latency * 2) {
         max_qps = qps;
         best_bw = cur_bw;
-        cur_bw = (uint32_t)(std::ceil)((float) cur_bw * 1.1f);
+        cur_bw = (uint32_t) (std::ceil)((float) cur_bw * 1.1f);
       } else {
         stop_flag = true;
       }
@@ -743,9 +744,9 @@ namespace diskann {
         (((_u64) width_u32 + 1) * sizeof(unsigned)) + (ndims_64 * sizeof(T));
     nnodes_per_sector = SECTOR_LEN / max_node_len;
 
-    LOG(DEBUG) << "medoid: " << medoid << "B" << "max_node_len: " 
-               << max_node_len << "B" << "nnodes_per_sector: "
-              << nnodes_per_sector << "B";
+    LOG(DEBUG) << "medoid: " << medoid << "B"
+               << "max_node_len: " << max_node_len << "B"
+               << "nnodes_per_sector: " << nnodes_per_sector << "B";
 
     // SECTOR_LEN buffer for each sector
     std::unique_ptr<char[]> sector_buf = std::make_unique<char[]>(SECTOR_LEN);
@@ -761,8 +762,8 @@ namespace diskann {
     _u64 n_data_nodes_per_sector = 0;
 
     if (append_reorder_data) {
-      n_data_nodes_per_sector = 
-        SECTOR_LEN / (ndims_reorder_file * sizeof(float));
+      n_data_nodes_per_sector =
+          SECTOR_LEN / (ndims_reorder_file * sizeof(float));
       n_reorder_sectors =
           ROUND_UP(npts_64, n_data_nodes_per_sector) / n_data_nodes_per_sector;
     }
@@ -871,7 +872,7 @@ namespace diskann {
   }
 
   template<typename T>
-  int build_disk_index(const BuildConfig& config) {
+  int build_disk_index(const BuildConfig &config) {
     if (!std::is_same<T, float>::value &&
         config.compare_metric == diskann::Metric::INNER_PRODUCT) {
       std::stringstream stream;
@@ -894,9 +895,8 @@ namespace diskann {
         get_pq_compressed_filename(index_prefix_path);
     std::string mem_index_path = index_prefix_path + "_mem.index";
     std::string disk_index_path = get_disk_index_filename(index_prefix_path);
-    std::string medoids_path = 
-        get_disk_index_medoids_filename(disk_index_path);
-    std::string centroids_path = 
+    std::string medoids_path = get_disk_index_medoids_filename(disk_index_path);
+    std::string centroids_path =
         get_disk_index_centroids_filename(disk_index_path);
     std::string sample_data_file = get_sample_data_filename(index_prefix_path);
     // optional, used if disk index file must store pq data
@@ -918,7 +918,7 @@ namespace diskann {
       data_file_to_use = prepped_base;
       float max_norm_of_base =
           diskann::prepare_base_for_inner_products<T>(base_file, prepped_base);
-      std::string norm_file = 
+      std::string norm_file =
           get_disk_index_max_base_norm_file(disk_index_path);
       diskann::save_bin<float>(norm_file, &max_norm_of_base, 1, 1);
     }
@@ -929,7 +929,7 @@ namespace diskann {
     double pq_code_size_limit = get_memory_budget(config.pq_code_size_gb);
     if (pq_code_size_limit <= 0) {
       LOG(ERROR) << "Insufficient memory budget (or string was not in right "
-                   "format). Should be > 0.";
+                    "format). Should be > 0.";
       return -1;
     }
     double indexing_ram_budget = config.index_mem_gb;
@@ -944,9 +944,10 @@ namespace diskann {
     }
 
     LOG(INFO) << "Starting index build: R=" << R << " L=" << L
-                  << " Query RAM budget: " << pq_code_size_limit / (1024 * 1024 * 1024) << "(GiB)"
-                  << " Indexing ram budget: " << indexing_ram_budget << "(GiB)"
-                  << " T: " << num_threads;
+              << " Query RAM budget: "
+              << pq_code_size_limit / (1024 * 1024 * 1024) << "(GiB)"
+              << " Indexing ram budget: " << indexing_ram_budget << "(GiB)"
+              << " T: " << num_threads;
 
     auto s = std::chrono::high_resolution_clock::now();
 
@@ -955,63 +956,67 @@ namespace diskann {
     diskann::get_bin_metadata(data_file_to_use.c_str(), points_num, dim);
 
     size_t num_pq_chunks =
-        (size_t)(std::floor)(_u64(pq_code_size_limit / points_num));
+        (size_t) (std::floor)(_u64(pq_code_size_limit / points_num));
 
-    num_pq_chunks = num_pq_chunks <= 0 ? 1 : num_pq_chunks;
+    // num_pq_chunks = num_pq_chunks <= 0 ? 1 : num_pq_chunks;
+    num_pq_chunks = 127;
     num_pq_chunks = num_pq_chunks > dim ? dim : num_pq_chunks;
 
     LOG(DEBUG) << "Compressing " << dim << "-dimensional data into "
-                  << num_pq_chunks << " bytes per vector.";
-
-    size_t train_size, train_dim;
-    float *train_data;
+               << num_pq_chunks << " bytes per vector.";
 
     double p_val = ((double) MAX_PQ_TRAINING_SET_SIZE / (double) points_num);
-    // generates random sample and sets it to train_data and updates
-    // train_size
-    gen_random_slice<T>(data_file_to_use.c_str(), p_val, train_data, train_size,
-                        train_dim);
+    // not train pq
+    // size_t train_size, train_dim;
+    // float *train_data;
+    // // generates random sample and sets it to train_data and updates
+    // // train_size
+    // gen_random_slice<T>(data_file_to_use.c_str(), p_val, train_data,
+    // train_size,
+    //                     train_dim);
 
-    if (use_disk_pq) {
-      if (disk_pq_dims > dim)
-        disk_pq_dims = dim;
+    // if (use_disk_pq) {
+    //   if (disk_pq_dims > dim)
+    //     disk_pq_dims = dim;
 
-      LOG(DEBUG) << "Compressing base for disk-PQ into " << disk_pq_dims
-                << " chunks ";
-      generate_pq_pivots(train_data, train_size, (uint32_t) dim, 256,
-                         (uint32_t) disk_pq_dims, NUM_KMEANS_REPS,
-                         disk_pq_pivots_path, false);
-      if (config.compare_metric == diskann::Metric::INNER_PRODUCT)
-        generate_pq_data_from_pivots<float>(
-            data_file_to_use.c_str(), 256, (uint32_t) disk_pq_dims,
-            disk_pq_pivots_path, disk_pq_compressed_vectors_path);
-      else
-        generate_pq_data_from_pivots<T>(
-            data_file_to_use.c_str(), 256, (uint32_t) disk_pq_dims,
-            disk_pq_pivots_path, disk_pq_compressed_vectors_path);
-    }
-    LOG(DEBUG) << "Training data loaded of size " << train_size;
+    //   LOG(DEBUG) << "Compressing base for disk-PQ into " << disk_pq_dims
+    //              << " chunks ";
+    //   generate_pq_pivots(train_data, train_size, (uint32_t) dim, 256,
+    //                      (uint32_t) disk_pq_dims, NUM_KMEANS_REPS,
+    //                      disk_pq_pivots_path, false);
+    //   if (config.compare_metric == diskann::Metric::INNER_PRODUCT)
+    //     generate_pq_data_from_pivots<float>(
+    //         data_file_to_use.c_str(), 256, (uint32_t) disk_pq_dims,
+    //         disk_pq_pivots_path, disk_pq_compressed_vectors_path);
+    //   else
+    //     generate_pq_data_from_pivots<T>(
+    //         data_file_to_use.c_str(), 256, (uint32_t) disk_pq_dims,
+    //         disk_pq_pivots_path, disk_pq_compressed_vectors_path);
+    // }
+    // LOG(DEBUG) << "Training data loaded of size " << train_size;
 
-    // don't translate data to make zero mean for PQ compression. We must not
-    // translate for inner product search.
-    bool make_zero_mean = true;
-    if (config.compare_metric == diskann::Metric::INNER_PRODUCT)
-      make_zero_mean = false;
+    // // don't translate data to make zero mean for PQ compression. We must not
+    // // translate for inner product search.
+    // bool make_zero_mean = true;
+    // if (config.compare_metric == diskann::Metric::INNER_PRODUCT)
+    //   make_zero_mean = false;
 
-    generate_pq_pivots(train_data, train_size, (uint32_t) dim, 256,
-                       (uint32_t) num_pq_chunks, NUM_KMEANS_REPS,
-                       pq_pivots_path, make_zero_mean);
+    // generate_pq_pivots(train_data, train_size, (uint32_t) dim, 256,
+    //                    (uint32_t) num_pq_chunks, NUM_KMEANS_REPS,
+    //                    pq_pivots_path, make_zero_mean);
 
-    generate_pq_data_from_pivots<T>(data_file_to_use.c_str(), 256,
-                                    (uint32_t) num_pq_chunks, pq_pivots_path,
-                                    pq_compressed_vectors_path);
+    // generate_pq_data_from_pivots<T>(data_file_to_use.c_str(), 256,
+    //                                 (uint32_t) num_pq_chunks, pq_pivots_path,
+    //                                 pq_compressed_vectors_path);
 
-    delete[] train_data;
+    // delete[] train_data;
 
-    train_data = nullptr;
+    // train_data = nullptr;
+
 // Gopal. Splitting diskann_dll into separate DLLs for search and build.
 // This code should only be available in the "build" DLL.
-#if defined(RELEASE_UNUSED_TCMALLOC_MEMORY_AT_CHECKPOINTS) && defined(DISKANN_BUILD)
+#if defined(RELEASE_UNUSED_TCMALLOC_MEMORY_AT_CHECKPOINTS) && \
+    defined(DISKANN_BUILD)
     MallocExtension::instance()->ReleaseFreeMemory();
 #endif
 
