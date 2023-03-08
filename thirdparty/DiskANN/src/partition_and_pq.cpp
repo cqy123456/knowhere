@@ -219,7 +219,10 @@ int generate_pq_pivots(const float *passed_train_data, size_t num_train,
       return -1;
     }
   }
-
+  LOG(INFO) << "first vec";
+  for (auto i = 0; i < dim; i++) {
+    LOG(INFO) << train_data[i];
+  }
   // Calculate centroid and center the training data
   std::unique_ptr<float[]> centroid = std::make_unique<float[]>(dim);
   for (uint64_t d = 0; d < dim; d++) {
@@ -248,6 +251,10 @@ int generate_pq_pivots(const float *passed_train_data, size_t num_train,
     }
     for (uint64_t d = 0; d < dim; d++) {
       for (uint64_t p = 0; p < num_train; p++) {
+        if (isinff(train_data[p * dim + d]) ||
+            isnanf(train_data[p * dim + d])) {
+          train_data[p * dim + d] = 0;
+        }
         train_data[p * dim + d] -= centroid[d];
       }
     }
