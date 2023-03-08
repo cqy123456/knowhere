@@ -16,7 +16,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
-
+#include <math.h>
 #if defined(RELEASE_UNUSED_TCMALLOC_MEMORY_AT_CHECKPOINTS) && \
     defined(DISKANN_BUILD)
 #include "gperftools/malloc_extension.h"
@@ -232,7 +232,8 @@ int generate_pq_pivots(const float *passed_train_data, size_t num_train,
                          // products.
     for (uint64_t d = 0; d < dim; d++) {
       for (uint64_t p = 0; p < num_train; p++) {
-        centroid[d] += train_data[p * dim + d];
+        if (!isnan(train_data[p * dim + d]))
+          centroid[d] += train_data[p * dim + d];
       }
       centroid[d] /= num_train;
     }
