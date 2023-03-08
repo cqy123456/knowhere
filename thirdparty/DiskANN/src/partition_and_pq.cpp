@@ -248,7 +248,8 @@ int generate_pq_pivots(const float *passed_train_data, size_t num_train,
     for (uint64_t p = 0; p < num_train; p++) {
       for (uint64_t d = 0; d < dim; d++) {
         if (isnormal(train_data[p * dim + d]))
-          centroid[d] += train_data[p * dim + d];
+          train_data[p * dim + d] = 0;
+        centroid[d] += train_data[p * dim + d];
       }
     }
     for (uint64_t d = 0; d < dim; d++) {
