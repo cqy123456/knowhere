@@ -233,18 +233,32 @@ int generate_pq_pivots(const float *passed_train_data, size_t num_train,
                          // compute PQ. This needs to be set to false when using
                          // PQ for MIPS as such translations dont preserve inner
                          // products.
-    for (uint64_t d = 0; d < dim; d++) {
-      for (uint64_t p = 0; p < num_train; p++) {
-        if (!isinff(train_data[p * dim + d]) &&
-            !isnanf(train_data[p * dim + d]))
+    // for (uint64_t d = 0; d < dim; d++) {
+    //   for (uint64_t p = 0; p < num_train; p++) {
+    //     if (!isinff(train_data[p * dim + d]) &&
+    //         !isnanf(train_data[p * dim + d]))
+    //       centroid[d] += train_data[p * dim + d];
+    //   }
+    //   if (!isinff(centroid[d]) && !isnanf(centroid[d])) {
+    //     centroid[d] /= num_train;
+    //   } else {
+    //     centroid[d] = 0;
+    //   }
+    // }
+    for (uint64_t p = 0; p < num_train; p++) {
+      for (uint64_t d = 0; d < dim; d++) {
+        if (isnormal(train_data[p * dim + d]))
           centroid[d] += train_data[p * dim + d];
       }
+    }
+    for (uint64_t d = 0; d < dim; d++) {
       if (!isinff(centroid[d]) && !isnanf(centroid[d])) {
         centroid[d] /= num_train;
       } else {
         centroid[d] = 0;
       }
     }
+
     LOG(DEBUG) << "centroid";
     for (auto i = 0; i < dim; i++) {
       LOG(DEBUG) << centroid[i];
