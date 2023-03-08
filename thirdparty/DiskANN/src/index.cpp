@@ -1006,7 +1006,6 @@ namespace diskann {
         // std::vector<unsigned> des;
         des.clear();
         // des.reserve(2 * _final_graph[n].size());
-        LOG(DEBUG) << "node n :" << n << " append L ." << Lsize << std::endl;
         if (_dynamic_index) {
           LockGuard guard(_locks[n]);
           for (unsigned m = 0; m < _final_graph[n].size(); m++) {
@@ -1532,8 +1531,6 @@ namespace diskann {
           std::vector<Neighbor> pool;
           pool.reserve(L * 2);
           visited.reserve(L * 2);
-          LOG(INFO) << "node : " << node_ctr << " doing get_expanded_nodes, L "
-                    << L;
           get_expanded_nodes(node, L, init_ids, pool, visited);
           /* check the neighbors of the query that are not part of
            * visited, check their distance to the query, and add it to

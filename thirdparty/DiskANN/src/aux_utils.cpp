@@ -966,51 +966,50 @@ namespace diskann {
 
     double p_val = ((double) MAX_PQ_TRAINING_SET_SIZE / (double) points_num);
     // not train pq
-    // size_t train_size, train_dim;
-    // float *train_data;
-    // // generates random sample and sets it to train_data and updates
-    // // train_size
-    // gen_random_slice<T>(data_file_to_use.c_str(), p_val, train_data,
-    // train_size,
-    //                     train_dim);
+    size_t train_size, train_dim;
+    float *train_data;
+    // generates random sample and sets it to train_data and updates
+    // train_size
+    gen_random_slice<T>(data_file_to_use.c_str(), p_val, train_data, train_size,
+                        train_dim);
 
-    // if (use_disk_pq) {
-    //   if (disk_pq_dims > dim)
-    //     disk_pq_dims = dim;
+    if (use_disk_pq) {
+      if (disk_pq_dims > dim)
+        disk_pq_dims = dim;
 
-    //   LOG(DEBUG) << "Compressing base for disk-PQ into " << disk_pq_dims
-    //              << " chunks ";
-    //   generate_pq_pivots(train_data, train_size, (uint32_t) dim, 256,
-    //                      (uint32_t) disk_pq_dims, NUM_KMEANS_REPS,
-    //                      disk_pq_pivots_path, false);
-    //   if (config.compare_metric == diskann::Metric::INNER_PRODUCT)
-    //     generate_pq_data_from_pivots<float>(
-    //         data_file_to_use.c_str(), 256, (uint32_t) disk_pq_dims,
-    //         disk_pq_pivots_path, disk_pq_compressed_vectors_path);
-    //   else
-    //     generate_pq_data_from_pivots<T>(
-    //         data_file_to_use.c_str(), 256, (uint32_t) disk_pq_dims,
-    //         disk_pq_pivots_path, disk_pq_compressed_vectors_path);
-    // }
-    // LOG(DEBUG) << "Training data loaded of size " << train_size;
+      LOG(DEBUG) << "Compressing base for disk-PQ into " << disk_pq_dims
+                 << " chunks ";
+      generate_pq_pivots(train_data, train_size, (uint32_t) dim, 256,
+                         (uint32_t) disk_pq_dims, NUM_KMEANS_REPS,
+                         disk_pq_pivots_path, false);
+      if (config.compare_metric == diskann::Metric::INNER_PRODUCT)
+        generate_pq_data_from_pivots<float>(
+            data_file_to_use.c_str(), 256, (uint32_t) disk_pq_dims,
+            disk_pq_pivots_path, disk_pq_compressed_vectors_path);
+      else
+        generate_pq_data_from_pivots<T>(
+            data_file_to_use.c_str(), 256, (uint32_t) disk_pq_dims,
+            disk_pq_pivots_path, disk_pq_compressed_vectors_path);
+    }
+    LOG(DEBUG) << "Training data loaded of size " << train_size;
 
-    // // don't translate data to make zero mean for PQ compression. We must not
-    // // translate for inner product search.
-    // bool make_zero_mean = true;
-    // if (config.compare_metric == diskann::Metric::INNER_PRODUCT)
-    //   make_zero_mean = false;
+    // don't translate data to make zero mean for PQ compression. We must not
+    // translate for inner product search.
+    bool make_zero_mean = true;
+    if (config.compare_metric == diskann::Metric::INNER_PRODUCT)
+      make_zero_mean = false;
 
-    // generate_pq_pivots(train_data, train_size, (uint32_t) dim, 256,
-    //                    (uint32_t) num_pq_chunks, NUM_KMEANS_REPS,
-    //                    pq_pivots_path, make_zero_mean);
+    generate_pq_pivots(train_data, train_size, (uint32_t) dim, 256,
+                       (uint32_t) num_pq_chunks, NUM_KMEANS_REPS,
+                       pq_pivots_path, make_zero_mean);
 
-    // generate_pq_data_from_pivots<T>(data_file_to_use.c_str(), 256,
-    //                                 (uint32_t) num_pq_chunks, pq_pivots_path,
-    //                                 pq_compressed_vectors_path);
+    generate_pq_data_from_pivots<T>(data_file_to_use.c_str(), 256,
+                                    (uint32_t) num_pq_chunks, pq_pivots_path,
+                                    pq_compressed_vectors_path);
 
-    // delete[] train_data;
+    delete[] train_data;
 
-    // train_data = nullptr;
+    train_data = nullptr;
 
 // Gopal. Splitting diskann_dll into separate DLLs for search and build.
 // This code should only be available in the "build" DLL.
