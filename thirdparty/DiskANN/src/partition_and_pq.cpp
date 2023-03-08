@@ -237,7 +237,10 @@ int generate_pq_pivots(const float *passed_train_data, size_t num_train,
       }
       centroid[d] /= num_train;
     }
-
+    LOG(DEBUG) << "centroid";
+    for (auto i = 0; i < dim; i++) {
+      LOG(DEBUG) << centroid[i];
+    }
     for (uint64_t d = 0; d < dim; d++) {
       for (uint64_t p = 0; p < num_train; p++) {
         train_data[p * dim + d] -= centroid[d];
