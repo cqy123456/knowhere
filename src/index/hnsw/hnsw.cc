@@ -126,6 +126,8 @@ class HnswIndexNode : public IndexNode {
         if (train_data != nullptr) {
             delete[] train_data;
         }
+
+        index_->loadPQ(pq_compressed_vectors_path, pq_pivots_path);
         return Status::success;
     }
 
