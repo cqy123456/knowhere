@@ -17,15 +17,15 @@ endif()
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
   message(STATUS "Build in Debug mode")
-  set(CMAKE_CXX_FLAGS "-O0 -g -Wall -fPIC ${CMAKE_CXX_FLAGS}")
+  set(CMAKE_CXX_FLAGS "-O0 -g -Wall -fPIC ${CMAKE_CXX_FLAGS} -mavx2 -funroll-loops -march=native")
   if(USE_CUDA)
     set(CMAKE_CUDA_FLAGS
         "-O0 -g -Xcompiler=-w -Xcompiler=-fPIC ${CMAKE_CUDA_FLAGS}")
   endif()
 else()
-  set(CMAKE_CXX_FLAGS "-Ofast  -march=native -Wall -fPIC ${CMAKE_CXX_FLAGS}")
+  set(CMAKE_CXX_FLAGS "-O3 -mavx2 -march=native  -Wall -fPIC ${CMAKE_CXX_FLAGS}")
   if(USE_CUDA)
     set(CMAKE_CUDA_FLAGS
-        "-O2 -Xcompiler=-w -Xcompiler=-fPIC ${CMAKE_CUDA_FLAGS}")
+        "-mavx2 -march=native -O3 -Xcompiler=-w -Xcompiler=-fPIC -funroll-loops ${CMAKE_CUDA_FLAGS}")
   endif()
 endif()

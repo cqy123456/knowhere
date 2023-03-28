@@ -20,8 +20,8 @@ add_library(diskann STATIC ${DISKANN_SOURCES})
 target_link_libraries(diskann PUBLIC ${AIO_LIBRARIES}
                                      ${DISKANN_BOOST_PROGRAM_OPTIONS_LIB})
 if(__X86_64)
-  target_compile_options(
-    diskann PRIVATE -ofast -fno-builtin-malloc -fno-builtin-calloc
-                    -fno-builtin-realloc -fno-builtin-free -mavx2 -DUSE_AVX2 -Ofast -DELPP_DISABLE_DEBUG_LOGS -DNDEBUG -march=native )
+target_compile_options(
+    diskann PRIVATE -o3 -fno-builtin-malloc -fno-builtin-calloc
+                    -fno-builtin-realloc -fno-builtin-free -mavx2 -DUSE_AVX2 -Ofast -DELPP_DISABLE_DEBUG_LOGS -DNDEBUG -march=native)
 endif()
 list(APPEND KNOWHERE_LINKER_LIBS diskann)

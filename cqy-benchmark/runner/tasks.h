@@ -265,33 +265,6 @@ BuildIndexTask(const std::string& index_type, const std::string& data_path, cons
         idx.Build(*ds, build_json);
         build_mem_usage = getPeakRSS() - start_mem;
         std::remove(raw_data_path.c_str());
-    } else if (index_type == "FASTSCANN") {
-        auto ds = IsBinaryType(index_type) ? data_reader.GetBaseData<true>() : data_reader.GetBaseData<false>();
-        auto base = (float*)ds->GetTensor();
-        std::string metric;
-        if (metric_type == knowhere::metric::IP) {
-            metric = faiss::METRIC_INNER_PRODUCT;
-        } else {
-            metric = faiss::METRIC_L2;
-        }
-        auto nlist = build_json["nlist"].get<int>();
-        auto m = std::ceil((int)ds->GetDim() / build_json["sub_dim"].get<int>());
-        auto by_residual = build_json["by_residual"].get<bool>();
-        std::stringstream namestream;
-        std::string index_name;
-        namestream << "IVF" << nlist << ",";
-        namestream << "PQ" << m << "x4fs";
-        namestream >> index_name;
-        std::cout << "building " << index_name << std::endl;
-
-        faiss::Index* index;
-        index = faiss::index_factory((int)ds->GetDim(), index_name.c_str());
-        auto fs_index = dynamic_cast<faiss::IndexIVFPQFastScan*>(index);
-        fs_index->by_residual = by_residual;
-        fs_index->train(ds->GetRows(), base);
-        fs_index->add(ds->GetRows(), base);
-        build_mem_usage = getPeakRSS() - start_mem;
-        faiss::write_index(fs_index, index_path.c_str());
     } else {
         // create memory index
         start_mem = getCurrentRSS();

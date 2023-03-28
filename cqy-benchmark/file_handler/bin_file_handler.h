@@ -74,6 +74,7 @@ write_index_file(const std::string& filename, const knowhere::BinarySet& binary_
 
 void
 read_index_file(const std::string& filename, knowhere::BinarySet& binary_set) {
+    std::cout <<"begin read index file "<<std::endl;
     binary_set.clear();
 
     IndexIOReader reader(filename);

@@ -50,12 +50,15 @@ pq_dist_lookup(const _u8* pq_ids, const _u64 n_pts, const _u64 pq_nchunks, const
     _mm_prefetch((char*)pq_ids, _MM_HINT_T0);
     _mm_prefetch((char*)(pq_ids + 64), _MM_HINT_T0);
     _mm_prefetch((char*)(pq_ids + 128), _MM_HINT_T0);
+    _mm_prefetch((char*)(pq_dists), _MM_HINT_T1);
+
     memset(dists_out, 0, n_pts * sizeof(float));
     for (_u64 chunk = 0; chunk < pq_nchunks; chunk++) {
         const float* chunk_dists = pq_dists + 256 * chunk;
         if (chunk < pq_nchunks - 1) {
             _mm_prefetch((char*)(chunk_dists + 256), _MM_HINT_T0);
         }
+#pragma unroll 
         for (_u64 idx = 0; idx < n_pts; idx++) {
             _u8 pq_centerid = pq_ids[pq_nchunks * idx + chunk];
             dists_out[idx] += chunk_dists[pq_centerid];

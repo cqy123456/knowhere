@@ -301,7 +301,6 @@ class HDF5Reader {
         float* base = (float*)bs->GetTensor();
         auto nb = bs->GetRows();
         auto ndim = bs->GetDim();
-        std::cout << "writting nv, ndim" << nb << " " << ndim << " " << out_file << std::endl;
         write_bin_file<float>(out_file, base, nb, ndim);
         return;
     }

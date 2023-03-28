@@ -4,6 +4,7 @@
 #pragma once
 
 #include "utils.h"
+#include "immintrin.h"
 
 #define NUM_PQ_CENTROIDS 256
 
@@ -20,6 +21,9 @@ namespace diskann {
     _u32*  rearrangement = nullptr;
     float* centroid = nullptr;
     float* tables_T = nullptr;  // same as pq_tables, but col-major
+    float* part1 = nullptr;
+    float* part2 = nullptr;
+
    public:
     FixedChunkPQTable() {
     }
@@ -36,6 +40,10 @@ namespace diskann {
         delete[] chunk_offsets;
       if (centroid != nullptr)
         delete[] centroid;
+      if (part1 != nullptr)
+        delete[] part1;
+      if (part2 != nullptr)
+        delete[] part2;
 #endif
     }
 
@@ -125,6 +133,26 @@ namespace diskann {
         tables_T[j * 256 + i] = tables[i * ndims_u64 + j];
       }
     }
+
+    part1 = new float[256 * n_chunks];
+    part2 = new float[256 * ndims_u64];
+
+    memset(part1, 0, 256 * n_chunks * sizeof(float));
+    for (_u64 chunk = 0; chunk < n_chunks; chunk++) {
+      // sum (q-c)^2 for the dimensions associated with this chunk
+      float* part1_dists = part1 + (256 * chunk);
+      for (_u64 j = chunk_offsets[chunk]; j < chunk_offsets[chunk + 1]; j++) {
+        _u64         permuted_dim_in_query = rearrangement[j];
+        const float* centers_dim_vec = tables_T + (256 * j);
+        float*       part2_dists = part2 + (256 * j);
+        auto         c = centroid[permuted_dim_in_query];
+        for (_u64 idx = 0; idx < 256; idx++) {
+          part1_dists[idx] += centers_dim_vec[idx] * centers_dim_vec[idx] +
+                              c * c + 2 * centers_dim_vec[idx] * c;
+          part2_dists[idx] = -2 * (centers_dim_vec[idx] + c);
+        }
+      }
+    }
     std::cout << "end of loading pq" << std::endl;
   }
 
@@ -133,22 +161,68 @@ namespace diskann {
     return static_cast<_u32>(n_chunks);
   }
   void populate_chunk_distances(const float* query_vec, float* dist_vec) {
-    memset(dist_vec, 0, 256 * n_chunks * sizeof(float));
-    // chunk wise distance computation
+    // memset(dist_vec, 0, 256 * n_chunks * sizeof(float));
+    // // chunk wise distance computation
+    // for (_u64 chunk = 0; chunk < n_chunks; chunk++) {
+    //   // sum (q-c)^2 for the dimensions associated with this chunk
+    //   float* chunk_dists = dist_vec + (256 * chunk);
+    //   for (_u64 j = chunk_offsets[chunk]; j < chunk_offsets[chunk + 1]; j++)
+    //   {
+    //     _u64         permuted_dim_in_query = rearrangement[j];
+    //     const float* centers_dim_vec = tables_T + (256 * j);
+    //     for (_u64 idx = 0; idx < 256; idx++) {
+    //       double diff =
+    //           centers_dim_vec[idx] - (query_vec[permuted_dim_in_query] -
+    //                                   centroid[permuted_dim_in_query]);
+    //       chunk_dists[idx] += (float) (diff * diff);
+    //     }
+    //   }
+    // }
+
+    auto q = new float[this->ndims];
+    for (auto idx = 0; idx < this->ndims; idx++) {
+      q[idx] = query_vec[rearrangement[idx]];
+    }
     for (_u64 chunk = 0; chunk < n_chunks; chunk++) {
-      // sum (q-c)^2 for the dimensions associated with this chunk
       float* chunk_dists = dist_vec + (256 * chunk);
-      for (_u64 j = chunk_offsets[chunk]; j < chunk_offsets[chunk + 1]; j++) {
-        _u64         permuted_dim_in_query = rearrangement[j];
-        const float* centers_dim_vec = tables_T + (256 * j);
-        for (_u64 idx = 0; idx < 256; idx++) {
-          double diff =
-              centers_dim_vec[idx] - (query_vec[permuted_dim_in_query] -
-                                      centroid[permuted_dim_in_query]);
-          chunk_dists[idx] += (float) (diff * diff);
+      float* sum_part = part1 + (256 * chunk);
+      auto   beg_dim = chunk_offsets[chunk];
+      auto   end_dim = chunk_offsets[chunk + 1];
+
+      // use avx2
+      size_t offest = 0;
+      __m256 msum1, msum2, msum3, msum4;
+
+      while (offest < 256) {
+        const float* mul = part2 + (256 * beg_dim) + offest;
+        msum1 = _mm256_loadu_ps(sum_part);
+        msum2 = _mm256_loadu_ps(sum_part + 8);
+        msum3 = _mm256_loadu_ps(sum_part + 16);
+        msum4 = _mm256_loadu_ps(sum_part + 24);
+        size_t dim_idx = beg_dim;
+        while (dim_idx < end_dim) {
+          __m256 mx = _mm256_set1_ps(*(q + dim_idx));
+          __m256 my1 = _mm256_loadu_ps(mul);
+          __m256 my2 = _mm256_loadu_ps(mul + 8);
+          __m256 my3 = _mm256_loadu_ps(mul + 16);
+          __m256 my4 = _mm256_loadu_ps(mul + 24);
+          msum1 = _mm256_fmadd_ps(mx, my1, msum1);
+          msum2 = _mm256_fmadd_ps(mx, my2, msum2);
+          msum3 = _mm256_fmadd_ps(mx, my3, msum3);
+          msum4 = _mm256_fmadd_ps(mx, my4, msum4);
+          mul += 256;
+          dim_idx++;
         }
+        _mm256_storeu_ps(chunk_dists, msum1);
+        _mm256_storeu_ps(chunk_dists + 8, msum2);
+        _mm256_storeu_ps(chunk_dists + 16, msum3);
+        _mm256_storeu_ps(chunk_dists + 24, msum4);
+        offest += 32;
+        chunk_dists += 32;
+        sum_part += 32;
       }
     }
+    delete[] q;
   }
 
   float l2_distance(const float* query_vec, _u8* base_vec) {

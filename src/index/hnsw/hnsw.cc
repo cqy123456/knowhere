@@ -98,29 +98,28 @@ class HnswIndexNode : public IndexNode {
             index_->addPoint((static_cast<const float*>(tensor) + dim * i), i);
         }
         auto pq_s = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> graph_diff = graph_s - pq_s;
+        std::chrono::duration<double> graph_diff =  pq_s - graph_s;
         LOG_KNOWHERE_INFO_ << "Training graph cost: " << graph_diff.count() << "s";
         size_t train_size;
         float* train_data = nullptr;
         double p_val = ((double)diskann::MAX_PQ_TRAINING_SET_SIZE / (double)rows);
         size_t num_pq_chunks = std::ceil(dim * 1.0 / hnsw_cfg.sub_dim);
+
         bool make_zero_mean = true;
         std::string data_file_to_use = "raw_data.bin";
         if (hnsw_cfg.metric_type == metric::IP)
             make_zero_mean = false;
         const float* raw_data = static_cast<const float*>(tensor);
+      
         write_bin_file<float>(data_file_to_use, raw_data, rows, dim);
-
+       
         gen_random_slice(raw_data, rows, dim, p_val, train_data, train_size);
-        std::cout << "begin train pq, train size" << train_size << std::endl;
 
         generate_pq_pivots(train_data, train_size, (uint32_t)dim, 256, (uint32_t)num_pq_chunks,
                            diskann::NUM_KMEANS_REPS, pq_pivots_path, make_zero_mean);
-        std::cout << "generate_pq_pivots" << std::endl;
 
         generate_pq_data_from_pivots<float>(data_file_to_use.c_str(), 256, (uint32_t)num_pq_chunks, pq_pivots_path,
                                             pq_compressed_vectors_path);
-        std::cout << "generate_pq_data_from_pivots" << std::endl;
         auto pq_e = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> pq_diff = pq_e - pq_s;
         LOG_KNOWHERE_INFO_ << "Training PQ codes cost: " << pq_diff.count() << "s";
