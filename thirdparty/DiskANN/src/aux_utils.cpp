@@ -9,6 +9,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 #if defined(RELEASE_UNUSED_TCMALLOC_MEMORY_AT_CHECKPOINTS) && \
     defined(DISKANN_BUILD)
@@ -28,6 +29,10 @@
 #include "diskann/utils.h"
 
 namespace diskann {
+namespace {
+  static constexpr  uint32_t kSearchLForCache = 15;
+  static constexpr  uint32_t kTopkForCache = 1;
+};
 
   void add_new_file_to_single_index(std::string index_file,
                                     std::string new_file) {
@@ -320,6 +325,37 @@ namespace diskann {
     reader.close();
   }
 
+  // template<typename T>
+  //  DISKANN_DLLEXPORT uint32_t load_mem_graph(const std::string &mem_index_path, const size_t npts,
+  //                                         std::vector<std::vector<unsigned>> &mem_graph) {
+  //     cached_ifstream vamana_reader;
+  //     vamana_reader.open(mem_index_path, BUFFER_SIZE_FOR_CACHED_IO);
+  //     size_t expected_file_size;
+  //     vamana_reader.read((char *) &expected_file_size, sizeof(uint64_t));
+  //     if (get_file_size(mem_index_path) != expected_file_size) {
+  //        std::stringstream stream;
+  //         stream << "Error reading mem_index_path. Actual: "
+  //               << get_file_size(mem_index_path)
+  //               << ", expected: " << (size_t) expected_file_size
+  //               << std::endl;
+  //         throw diskann::ANNException(stream.str(), -1, __FUNCSIG__, __FILE__,
+  //                                     __LINE__);
+  //     }
+  //     unsigned width_u32, medoid_u32, vamana_frozen_num; 
+  //     vamana_reader.read((char *) &width_u32, sizeof(unsigned));
+  //     vamana_reader.read((char *) &medoid_u32, sizeof(unsigned));
+  //     vamana_reader.read((char *) &vamana_frozen_num, sizeof(_u64));
+  //     mem_graph = std::vector<std::vector<unsigned>>(expected_num_points + _num_frozen_pts);
+  //     unsigned n_neighbors;
+  //     for (auto id : npts) {
+  //       vamana_reader.read((char *) &n_neighbors, sizeof(unsigned));
+  //       mem_graph[id].resize(n_neighbors);
+  //       vamana_reader.read((char *)mem_graph[id].data(), sizeof(unsigned) * n_neighbors);
+  //     }
+  //     vamana_reader.close();
+  //     return medoid_u32;
+  // }
+
   int merge_shards(const std::string &vamana_prefix,
                    const std::string &vamana_suffix,
                    const std::string &idmaps_prefix,
@@ -502,13 +538,14 @@ namespace diskann {
   }
 
   template<typename T>
-  int build_merged_vamana_index(std::string     base_file,
+  std::unique_ptr<diskann::Index<T>> build_merged_vamana_index(std::string     base_file,
                                 diskann::Metric compareMetric, unsigned L,
                                 unsigned R, bool accelerate_build,
                                 double sampling_rate, double ram_budget,
                                 std::string mem_index_path,
                                 std::string medoids_file,
-                                std::string centroids_file) {
+                                std::string centroids_file
+                                ) {
     size_t base_num, base_dim;
     diskann::get_bin_metadata(base_file, base_num, base_dim);
 
@@ -519,25 +556,28 @@ namespace diskann {
           << "Full index fits in RAM budget, should consume at most "
           << full_index_ram / (1024 * 1024 * 1024)
           << "GiBs, so building in one shot";
-      diskann::Parameters paras;
-      paras.Set<unsigned>("L", (unsigned) L);
-      paras.Set<unsigned>("R", (unsigned) R);
-      paras.Set<unsigned>("C", 750);
-      paras.Set<float>("alpha", 1.2f);
-      paras.Set<unsigned>("num_rnds", 2);
-      paras.Set<bool>("saturate_graph", 1);
-      paras.Set<std::string>("save_path", mem_index_path);
-      paras.Set<bool>("accelerate_build", accelerate_build);
+      diskann::Parameters build_paras;
+      build_paras.Set<unsigned>("L", (unsigned) L);
+      build_paras.Set<unsigned>("R", (unsigned) R);
+      build_paras.Set<unsigned>("C", 750);
+      build_paras.Set<float>("alpha", 1.2f);
+      build_paras.Set<unsigned>("num_rnds", 2);
+      build_paras.Set<bool>("saturate_graph", 1);
+      build_paras.Set<std::string>("save_path", mem_index_path);
+      build_paras.Set<bool>("accelerate_build", accelerate_build);
+
+      diskann::Parameters search_paras;
+      search_paras.Set<unsigned>("L", (unsigned) kSearchLForCache);
 
       std::unique_ptr<diskann::Index<T>> _pvamanaIndex =
           std::unique_ptr<diskann::Index<T>>(new diskann::Index<T>(
-              compareMetric, base_dim, base_num, false, false));
-      _pvamanaIndex->build(base_file.c_str(), base_num, paras);
+              compareMetric, base_dim, base_num, false, build_paras, search_paras, false));
+      _pvamanaIndex->build(base_file.c_str(), base_num, build_paras);
 
       _pvamanaIndex->save(mem_index_path.c_str(), true);
       std::remove(medoids_file.c_str());
       std::remove(centroids_file.c_str());
-      return 0;
+      return _pvamanaIndex;
     }
     std::string merged_index_prefix = mem_index_path + "_tempFiles";
     int         num_parts =
@@ -602,7 +642,14 @@ namespace diskann {
     }
     std::remove(medoids_file.c_str());
     std::remove(centroids_file.c_str());
-    return 0;
+    if (get_file_size(mem_index_path) < ram_budget * 1024 * 1024 * 1024) {
+        std::unique_ptr<diskann::Index<T>> mem_index =
+          std::unique_ptr<diskann::Index<T>>(new diskann::Index<T>(
+              compareMetric, base_dim, base_num, false, false));
+        mem_index->load(mem_index_path.c_str(), knowhere::ThreadPool::GetGlobalThreadPool()->size(), kSearchLForCache, true);
+    } else {
+        return nullptr;
+    }
   }
 
   // General purpose support for DiskANN interface
@@ -667,6 +714,167 @@ namespace diskann {
       delete[] stats;
     }
     return best_bw;
+  }
+
+//  template<typename T>
+//  int search_mem_graph_with_pq_table(const std::vector<std::vector<unsigned>> &mem_graph, unsigned entry_point,
+//                                                       std::shared_ptr<FixedChunkPQTable> pq_table, 
+//                                                       const float *query, const size_t dim,  const size_t R,
+//                                                       const size_t K, const unsigned L, 
+//                                                       unsigned *indices,
+//                                                       float                *distances,
+//                                                       std::vector<std::pair<uint32_t, uint32_t>> &visited_count) {
+//     auto aligned_dim = ROUND_UP(dim, 8);                                                    
+//     auto pqtable_dist_scratch = std::vector<float>(256 * aligned_dim);
+//     auto scratch_ids = std::vector<_u8>(R * aligned_dim);
+//     auto scratch_dist = std::vector<float>(R);
+//     auto retset = std::vector<Neighbor>();
+//     reset.reserve(L);
+//     auto visited = boost::dynamic_bitset<>{_nd, 0};
+
+//     // prepare pq 
+//     pq_table->populate_chunk_distances(query, pqtable_dist_scratch);
+//     auto compute_dists = [this, scratch_ids, pqtable_dist_scratch](const unsigned *ids,
+//                                                             const _u64 n_ids,
+//                                                             float *dists_out) {
+//       aggregate_coords(ids, n_ids, this->_pq_code, this->_pq_chunks,
+//                          scratch_ids);
+//       pq_dist_lookup(scratch_ids, n_ids, this->_pq_chunks, pq_dists,
+//                        dists_out);
+//     };
+
+//     auto &entry_point = this->_ep;
+//     compute_dists(&entry_point, 1, scratch_dist);
+//     cmps += 1;
+//     retset[0].id = entry_point;
+//     retset[0].flag = true;
+//     retset[0].distance = scratch_dist[0];
+//     visited[entry_point] = true;
+
+
+//   }
+
+  template<typename T>
+  void create_cached_nodes_file(std::unique_ptr<diskann::Index<T>>& mem_index, const std::string pq_compressed_vectors_path, 
+                              const std::string pq_pivots_path, const std::string base_file, 
+                              const std::string sample_file, const diskann::Metric compareMetric, 
+                              _u64 num_nodes_to_cache, std::string cache_file) {
+    if (num_nodes_to_cache <= 0) {
+      LOG_KNOWHERE_INFO_ << "The number of cache nodes <= 0, no need to generate cache files";
+      return;
+    }
+    if (compareMetric == diskann::Metric::INNER_PRODUCT && !std::is_same_v<T, float>) { 
+      LOG_KNOWHERE_ERROR_ << "Inner product only support float type in diskann";
+      return;
+    }
+    _u64 sample_num, sample_dim;
+    T   *samples;
+#ifdef EXEC_ENV_OLS
+    if (files.fileExists(sample_bin)) {
+      diskann::load_bin<T>(files, sample_file, samples, sample_num,
+                                   sample_dim, sample_aligned_dim);
+    }
+#else
+    if (file_exists(sample_file)) {
+      diskann::load_bin<T>(sample_file, samples, sample_num, sample_dim);
+    }
+#endif
+    else {
+      LOG_KNOWHERE_ERROR_ << "Sample bin file not found. Not generating cache."
+                    << std::endl;
+      return;
+    }
+
+    size_t points_num, points_dim;
+    diskann::get_bin_metadata(base_file.c_str(), points_num, points_dim);
+    auto thread_pool = knowhere::ThreadPool::GetGlobalThreadPool();
+    // std::unique_ptr<diskann::Index<T>> mem_index = std::unique_ptr<diskann::Index<T>>(new diskann::Index<T>(
+    //           diskann::Metric::L2, points_dim, points_num, false, false));
+    // mem_index->load(mem_index_file.c_str(), thread_pool->size(), search_l, true);
+    mem_index->replace_data_with_pq_code(pq_compressed_vectors_path, pq_pivots_path);
+
+    if (num_nodes_to_cache >= points_num) {
+      LOG_KNOWHERE_INFO_ << "The number of cache nodes is greater than the total number of nodes, adjust the number of cache nodes from "
+                         << num_nodes_to_cache << " to " << points_num;
+      num_nodes_to_cache = points_num;
+    }
+
+    LOG_KNOWHERE_INFO_ << "Use " << sample_num <<" sampled quries to generate " << num_nodes_to_cache << " cached nodes.";
+    std::vector<std::future<void>> futures;
+    std::vector<uint32_t> sample_queries_result_id(kTopkForCache * sample_num);
+    std::vector<float> sample_queries_result_dist(kTopkForCache * sample_num);
+
+    futures.reserve(sample_num);
+    std::vector<std::pair<uint32_t, uint32_t>> node_count_list(points_num);
+     for (size_t node_id = 0; node_id < points_num; node_id++) {
+      node_count_list[node_id] = std::pair<uint32_t, uint32_t>(node_id, 0);
+    }
+
+    for (_s64 i = 0; i < (int64_t) sample_num; i++) {
+      
+      futures.push_back(thread_pool->push([&, index = i]() {
+        if (compareMetric == diskann::Metric::INNER_PRODUCT) {
+            const T* origin_query = samples + (index * sample_dim);
+        double query_norm_dw = 0;
+            auto new_query = std::vector<T>(sample_dim + 1);
+        for (auto d = 0; d < sample_dim; d++) {
+              new_query[d] = origin_query[d];
+              query_norm_dw += origin_query[d] * origin_query[d];
+        }
+            if (query_norm_dw == 0) return;
+            new_query[sample_dim] = 0;
+            auto query_norm = float(std::sqrt(query_norm_dw));
+            for (uint32_t d = 0; d < sample_dim; d++) {
+                new_query[d] /= query_norm;
+            }
+            mem_index->search_with_pq(new_query.data(), kTopkForCache, kSearchLForCache,
+              sample_queries_result_id.data() + (index * kTopkForCache), 
+              sample_queries_result_dist.data() + (index * kTopkForCache), node_count_list);
+        } else {
+          const T* query = samples + (index * sample_dim);
+          mem_index->search_with_pq(query, kTopkForCache, kSearchLForCache,
+                          sample_queries_result_id.data() + (index * kTopkForCache), 
+                          sample_queries_result_dist.data() + (index * kTopkForCache), node_count_list);
+        }
+      }));
+    }
+    for (auto &future : futures) {
+      future.get();
+    }
+    
+    std::sort(node_count_list.begin(), node_count_list.end(),
+      [](std::pair<_u32, _u32> &a, std::pair<_u32, _u32> &b) {
+        return a.second > b.second;
+      });
+    
+    auto mem_index_graph = mem_index->get_graph();
+    cached_ofstream cached_nodes_writer(cache_file, BUFFER_SIZE_FOR_CACHED_IO);
+    std::ifstream base_reader(base_file, std::ios::binary);
+
+    int npts_i32, dim_i32;
+    base_reader.read((char*) &npts_i32, sizeof(int));
+    base_reader.read((char*) &dim_i32, sizeof(int));
+
+    //uint32_t cached_node_size = sizeof(uint32_t) + dim_i32 * sizeof(T) + sizeof(uint32_t) + sizeof(mem_index->);
+    uint32_t cached_node_size = 1;
+    cached_nodes_writer.write((char*)&num_nodes_to_cache, sizeof(uint32_t));
+    cached_nodes_writer.write((char*)&dim_i32, sizeof(uint32_t));
+    //auto cached_node_vector = std::make_shared<T>(dim_i32);
+    for (auto node_iter = node_count_list.begin(); node_iter < node_count_list.begin() + num_nodes_to_cache; node_iter++) {
+      uint64_t file_offest = 2 * sizeof(_u32) + node_iter->first * dim_i32 * sizeof(T);
+      cached_nodes_writer.write((char*)&node_iter->first, sizeof(uint32_t));
+      base_reader.seekg(file_offest, base_reader.beg);
+      base_reader.read((char*)cached_node_vector.get(), sizeof(T) * dim_i32);
+      cached_nodes_writer.write((char*)cached_node_vector.get(), sizeof(T) * dim_i32);
+      uin32_t neighbor_num = mem_index_graph[node_iter->first].size();
+      cached_nodes_writer.write((char*)&neighbor_num, sizeof(uin32_t));
+      cached_nodes_writer.write((char*)mem_index_graph[node_iter->first].data(), neighbor_num * sizeof(uint32_t));
+    }
+    base_reader.close();
+
+    if (samples != nullptr) {
+      delete [] samples;
+    }
   }
 
   template<typename T>
@@ -942,6 +1150,8 @@ namespace diskann {
     std::string disk_pq_compressed_vectors_path =
         index_prefix_path + "_disk.index_pq_compressed.bin";
 
+    std::string cached_nodes_file = get_cached_nodes_file(index_prefix_path);
+
     // output a new base file which contains extra dimension with sqrt(1 -
     // ||x||^2/M^2) for every x, M is max norm of all points. Extra space on
     // disk needed!
@@ -1051,8 +1261,10 @@ namespace diskann {
     defined(DISKANN_BUILD)
     MallocExtension::instance()->ReleaseFreeMemory();
 #endif
+    //std::vector<std::vector<unsigned>> mem_graph;
+    //std::unique_ptr<diskann::Index<T>> mem_index;
     auto graph_s = std::chrono::high_resolution_clock::now();
-    diskann::build_merged_vamana_index<T>(
+    auto  mem_index = diskann::build_merged_vamana_index<T>(
         data_file_to_use.c_str(), diskann::Metric::L2, L, R,
         config.accelerate_build, p_val, indexing_ram_budget, mem_index_path,
         medoids_path, centroids_path);
@@ -1079,17 +1291,23 @@ namespace diskann {
     double sample_sampling_rate = num_sample_points / points_num;
     gen_random_slice<T>(base_file.c_str(), sample_data_file,
                         sample_sampling_rate);
+    double cache_generate_expect_uasge = 1.1 * (get_file_size(mem_index_path) + get_file_size(sample_data_file) + 
+                get_file_size(pq_compressed_vectors_path) + get_file_size(pq_pivots_path)) / (1024 * 1024 * 1024) ;
+    if (mem_index != nullptr && cache_generate_expect_uasge < config.index_mem_gb) {
+      create_cached_nodes_file(mem_index, pq_compressed_vectors_path, 
+                            pq_pivots_path, data_file_to_use, sample_data_file, 
+                            config.compare_metric, config.num_nodes_to_cache, cached_nodes_file);
+    }
+    auto                          e = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> diff = e - s;
+    LOG_KNOWHERE_INFO_ << "Indexing time: " << diff.count() << std::endl;
 
     if (config.compare_metric == diskann::Metric::INNER_PRODUCT) {
       std::remove(data_file_to_use.c_str());
     }
-    std::remove(mem_index_path.c_str());
+    //std::remove(mem_index_path.c_str());
     if (use_disk_pq)
       std::remove(disk_pq_compressed_vectors_path.c_str());
-
-    auto                          e = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> diff = e - s;
-    LOG_KNOWHERE_INFO_ << "Indexing time: " << diff.count() << std::endl;
 
     return 0;
   }
@@ -1103,6 +1321,16 @@ namespace diskann {
   template DISKANN_DLLEXPORT void create_disk_layout<float>(
       const std::string base_file, const std::string mem_index_file,
       const std::string output_file, const std::string reorder_data_file);
+
+  template DISKANN_DLLEXPORT void create_cached_nodes_file<int8_t>(std::unique_ptr<diskann::Index<int8_t>>& mem_index,  const std::string pq_compressed_vectors_path, 
+                              const std::string pq_pivots_path, const std::string base_file,
+                              const std::string sample_file, const diskann::Metric compareMetric, _u64 num_nodes_to_cache, std::string cache_file);
+  template DISKANN_DLLEXPORT void create_cached_nodes_file<uint8_t>(std::unique_ptr<diskann::Index<uint8_t>>& mem_index, const std::string pq_compressed_vectors_path, 
+                              const std::string pq_pivots_path, const std::string base_file,
+                              const std::string sample_file, const diskann::Metric compareMetric, _u64 num_nodes_to_cache, std::string cache_file);
+  template DISKANN_DLLEXPORT void create_cached_nodes_file<float>(std::unique_ptr<diskann::Index<float>>& mem_index,  const std::string pq_compressed_vectors_path, 
+                              const std::string pq_pivots_path, const std::string base_file,
+                              const std::string sample_file, const diskann::Metric compareMetric, _u64 num_nodes_to_cache, std::string cache_file);
 
   template DISKANN_DLLEXPORT int8_t *load_warmup<int8_t>(
       const std::string &cache_warmup_file, uint64_t &warmup_num,
@@ -1149,17 +1377,17 @@ namespace diskann {
   template DISKANN_DLLEXPORT int build_disk_index<float>(
       const BuildConfig &config);
 
-  template DISKANN_DLLEXPORT int build_merged_vamana_index<int8_t>(
+  template DISKANN_DLLEXPORT std::unique_ptr<diskann::Index<int8_t>> build_merged_vamana_index<int8_t>(
       std::string base_file, diskann::Metric compareMetric, unsigned L,
       unsigned R, bool accelerate_build, double sampling_rate,
       double ram_budget, std::string mem_index_path, std::string medoids_path,
       std::string centroids_file);
-  template DISKANN_DLLEXPORT int build_merged_vamana_index<float>(
+  template DISKANN_DLLEXPORT std::unique_ptr<diskann::Index<float>> build_merged_vamana_index<float>(
       std::string base_file, diskann::Metric compareMetric, unsigned L,
       unsigned R, bool accelerate_build, double sampling_rate,
       double ram_budget, std::string mem_index_path, std::string medoids_path,
       std::string centroids_file);
-  template DISKANN_DLLEXPORT int build_merged_vamana_index<uint8_t>(
+  template DISKANN_DLLEXPORT std::unique_ptr<diskann::Index<uint8_t>> build_merged_vamana_index<uint8_t>(
       std::string base_file, diskann::Metric compareMetric, unsigned L,
       unsigned R, bool accelerate_build, double sampling_rate,
       double ram_budget, std::string mem_index_path, std::string medoids_path,

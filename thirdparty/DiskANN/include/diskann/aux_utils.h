@@ -28,6 +28,7 @@ typedef int FileHandle;
 
 #include "cached_io.h"
 #include "common_includes.h"
+#include "index.h"
 #include "tsl/robin_set.h"
 
 #include "utils.h"
@@ -81,6 +82,26 @@ namespace diskann {
                                    uint64_t warmup_aligned_dim);
 #endif
 
+
+// template<typename T>
+// DISKANN_DLLEXPORT uint32_t load_mem_graph(const std::string &mem_index_path, const size_t npts,
+//                                         std::vector<std::vector<unsigned>> &mem_graph);
+
+
+//  template<typename T>
+//  DISKANN_DLLEXPORT int search_mem_graph_with_pq_table(const std::vector<std::vector<unsigned>> &mem_graph, unsigned entry_point,
+//                                                       std::shared_ptr<FixedChunkPQTable> pq_table, 
+//                                                       const float *query, const size_t dim,  const size_t R,
+//                                                       const size_t K, const unsigned L, 
+//                                                       unsigned *indices,
+//                                                       float                *distances,
+//                                                       std::vector<std::pair<uint32_t, uint32_t>> &visited_count);
+
+
+//     uint8_t   *_pq_code = nullptr;
+//     FixedChunkPQTable* _pq_table = nullptr;
+//     size_t    _pq_chunks = 0;
+
   DISKANN_DLLEXPORT int merge_shards(const std::string &vamana_prefix,
                                      const std::string &vamana_suffix,
                                      const std::string &idmaps_prefix,
@@ -95,7 +116,7 @@ namespace diskann {
       diskann::Metric &distMetric);
 
   template<typename T>
-  DISKANN_DLLEXPORT int build_merged_vamana_index(
+  DISKANN_DLLEXPORT std::unique_ptr<diskann::Index<T>> build_merged_vamana_index(
       std::string base_file, diskann::Metric _compareMetric, unsigned L,
       unsigned R, bool accelerate_build, double sampling_rate,
       double ram_budget, std::string mem_index_path, std::string medoids_file,
@@ -127,10 +148,20 @@ namespace diskann {
     bool reorder = false;
     // acclerate the index build ~30% and lose ~1% recall
     bool accelerate_build = false;
+    // the number of nodes in the cached_nodes_file
+    uint32_t num_nodes_to_cache = 0;
+  };
+
+  struct GraphAndPQInfo {
+
   };
 
   template<typename T>
   DISKANN_DLLEXPORT int build_disk_index(const BuildConfig &config);
+
+  template<typename T>
+  DISKANN_DLLEXPORT void create_cached_nodes_file(std::unique_ptr<diskann::Index<T>> &mem_index,  const std::string pq_compressed_vectors_path, 
+                              const std::string pq_pivots_path, const std::string sample_file, const diskann::Metric compareMetric, const _u64 num_nodes_to_cache, std::string cache_file);
 
   template<typename T>
   DISKANN_DLLEXPORT void create_disk_layout(

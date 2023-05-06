@@ -17,6 +17,7 @@
 #include "distance.h"
 #include "neighbor.h"
 #include "parameters.h"
+#include "pq_table.h"
 #include "utils.h"
 #include "concurrent_queue.h"
 #include "windows_customizations.h"
@@ -62,6 +63,12 @@ namespace diskann {
     uint32_t search_l;
     uint32_t indexing_l;
     uint32_t r;
+
+    // memory for pq code and lookuptable
+    float    *aligned_query_float = nullptr;
+    float    *aligned_pqtable_dist_scratch = nullptr;
+    _u8      *scratch_ids = nullptr;
+    float    *scratch_dist = nullptr;
 
     InMemQueryScratch();
     void setup(uint32_t search_l, uint32_t indexing_l, uint32_t r, size_t dim);
@@ -121,7 +128,7 @@ namespace diskann {
     DISKANN_DLLEXPORT _u64 save_delete_list(const std::string &filename);
 
     DISKANN_DLLEXPORT void load(const char *index_file, uint32_t num_threads,
-                                uint32_t search_l);
+                                uint32_t search_l, const bool disk_index = false);
 
     DISKANN_DLLEXPORT size_t load_graph(const std::string filename,
                                         size_t            expected_num_points);
@@ -130,6 +137,9 @@ namespace diskann {
 
     DISKANN_DLLEXPORT size_t load_tags(const std::string tag_file_name);
     DISKANN_DLLEXPORT size_t load_delete_set(const std::string &filename);
+
+    DISKANN_DLLEXPORT size_t replace_data_with_pq_code(const std::string pq_compressed_vectors_path, 
+                                    const std::string pq_pivots_path);
 
     DISKANN_DLLEXPORT size_t get_num_points();
 
@@ -156,6 +166,13 @@ namespace diskann {
                                               const unsigned L, TagT *tags,
                                               float            *distances,
                                               std::vector<T *> &res_vectors);
+
+    template<typename IDType>
+    DISKANN_DLLEXPORT
+    std::pair<uint32_t, uint32_t> search_with_pq(const T *query, const size_t K,
+                                              const unsigned L, IDType *indices,
+                                              float                *distances,
+                                              std::vector<std::pair<uint32_t, uint32_t>> &visited_count);
 
     DISKANN_DLLEXPORT void clear_index();
 
@@ -353,6 +370,11 @@ namespace diskann {
     size_t     _dim = 0;
     size_t     _aligned_dim = 0;
     T         *_data = nullptr;
+
+    uint8_t   *_pq_code = nullptr;
+    FixedChunkPQTable* _pq_table = nullptr;
+    size_t    _pq_chunks = 0;
+    
     size_t     _nd = 0;  // number of active points i.e. existing in the graph
     size_t     _max_points = 0;  // total number of points in given data set
     size_t     _num_frozen_pts = 0;
@@ -391,6 +413,7 @@ namespace diskann {
     bool _lazy_done = false;      // true if lazy deletions have been made
     bool _data_compacted = true;  // true if data has been consolidated
     bool _is_saved = false;  // Gopal. Checking if the index is already saved.
+    bool _is_search_with_pq = false; // use pq code to compute distance 
 
     std::vector<std::mutex> _locks;  // Per node lock, cardinality=max_points_
     std::shared_timed_mutex _tag_lock;  // reader-writer lock on

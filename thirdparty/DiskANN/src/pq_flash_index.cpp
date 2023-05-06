@@ -48,46 +48,6 @@
 #define VECTOR_SECTOR_OFFSET(id) \
   ((((_u64) (id)) % nvecs_per_sector) * data_dim * sizeof(float))
 
-namespace {
-  void aggregate_coords(const unsigned *ids, const _u64 n_ids,
-                        const _u8 *all_coords, const _u64 ndims, _u8 *out) {
-    for (_u64 i = 0; i < n_ids; i++) {
-      memcpy(out + i * ndims, all_coords + ids[i] * ndims, ndims * sizeof(_u8));
-    }
-  }
-
-  void pq_dist_lookup(const _u8 *pq_ids, const _u64 n_pts,
-                      const _u64 pq_nchunks, const float *pq_dists,
-                      float *dists_out) {
-#if defined(__ARM_NEON__) || defined(__aarch64__)
-    __builtin_prefetch((char *) dists_out, 1, 3);
-    __builtin_prefetch((char *) pq_ids, 0, 3);
-    __builtin_prefetch((char *) (pq_ids + 64), 0, 3);
-    __builtin_prefetch((char *) (pq_ids + 128), 0, 3);
-#else
-    _mm_prefetch((char *) dists_out, _MM_HINT_T0);
-    _mm_prefetch((char *) pq_ids, _MM_HINT_T0);
-    _mm_prefetch((char *) (pq_ids + 64), _MM_HINT_T0);
-    _mm_prefetch((char *) (pq_ids + 128), _MM_HINT_T0);
-#endif
-    memset(dists_out, 0, n_pts * sizeof(float));
-    for (_u64 chunk = 0; chunk < pq_nchunks; chunk++) {
-      const float *chunk_dists = pq_dists + 256 * chunk;
-      if (chunk < pq_nchunks - 1) {
-#if defined(__ARM_NEON__) || defined(__aarch64__)
-        __builtin_prefetch((char *) (chunk_dists + 256), 0, 3);
-#else
-        _mm_prefetch((char *) (chunk_dists + 256), _MM_HINT_T0);
-#endif
-      }
-      for (_u64 idx = 0; idx < n_pts; idx++) {
-        _u8 pq_centerid = pq_ids[pq_nchunks * idx + chunk];
-        dists_out[idx] += chunk_dists[pq_centerid];
-      }
-    }
-  }
-}  // namespace
-
 namespace diskann {
   template<typename T>
   PQFlashIndex<T>::PQFlashIndex(std::shared_ptr<AlignedFileReader> fileReader,
@@ -195,6 +155,33 @@ namespace diskann {
       delete scratch.visited;
     }
   }
+
+#ifdef EXEC_ENV_OLS
+  template<typename T>
+  void PQFlashIndex<T>::load_cache_from_file(MemoryMappedFiles &files, std::string& cache_file) {
+    size_t cached_node_num, cache_node_dim;
+    char* cached_node_buffer;
+    diskann::load_bin<char>(files, cache_file, cached_node_buffer, cached_node_num, cache_node_dim);
+#else
+  template<typename T>
+  void PQFlashIndex<T>::load_cache_from_file(std::string& cache_file) {
+    size_t cached_node_num, cache_node_dim;
+    char* cached_node_buffer; 
+    diskann::load_bin<char>(cache_file, cached_node_buffer, cached_node_num, cache_node_dim);
+#endif
+    nhood_cache_buf = new unsigned[cached_node_num * (max_degree + 1)];
+    memset(nhood_cache_buf, 0, cached_node_num * (max_degree + 1));
+
+    //     // nhood_cache
+    // unsigned *nhood_cache_buf = nullptr;
+    // tsl::robin_map<_u32, std::pair<_u32, _u32 *>>
+    //     nhood_cache;  // <id, <neihbors_num, neihbors>>
+
+    // // coord_cache
+    // T                        *coord_cache_buf = nullptr;
+    // tsl::robin_map<_u32, T *> coord_cache;
+    return ;
+}
 
   template<typename T>
   void PQFlashIndex<T>::load_cache_list(std::vector<uint32_t> &node_list) {
@@ -887,9 +874,9 @@ namespace diskann {
     auto compute_dists = [this, pq_coord_scratch, pq_dists](const unsigned *ids,
                                                             const _u64 n_ids,
                                                             float *dists_out) {
-      ::aggregate_coords(ids, n_ids, this->data, this->n_chunks,
+      aggregate_coords(ids, n_ids, this->data, this->n_chunks,
                          pq_coord_scratch);
-      ::pq_dist_lookup(pq_coord_scratch, n_ids, this->n_chunks, pq_dists,
+      pq_dist_lookup(pq_coord_scratch, n_ids, this->n_chunks, pq_dists,
                        dists_out);
     };
     Timer                 query_timer, io_timer, cpu_timer;

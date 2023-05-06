@@ -171,6 +171,7 @@ TEST_CASE("Test DiskANNIndexNode.", "[diskann]") {
         json["max_degree"] = 56;
         json["search_list_size"] = 128;
         json["pq_code_budget_gb"] = sizeof(float) * kDim * kNumRows * 0.125 / (1024 * 1024 * 1024);
+        json["search_cache_budget_gb"] = sizeof(float) * kDim * kNumRows * 0.125 / (1024 * 1024 * 1024);
         json["build_dram_budget_gb"] = 32.0;
         json["num_threads"] = 8;
         return json;

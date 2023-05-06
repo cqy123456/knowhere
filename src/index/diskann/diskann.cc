@@ -250,10 +250,10 @@ DiskANNIndexNode<T>::Add(const DataSet& dataset, const Config& cfg) {
     if (!CheckMetric(build_conf.metric_type)) {
         return Status::invalid_metric_type;
     }
-    if (AnyIndexFileExist(build_conf.index_prefix)) {
-        LOG_KNOWHERE_ERROR_ << "This index prefix already has index files." << std::endl;
-        return Status::diskann_file_error;
-    }
+    // if (AnyIndexFileExist(build_conf.index_prefix)) {
+    //     LOG_KNOWHERE_ERROR_ << "This index prefix already has index files." << std::endl;
+    //     return Status::diskann_file_error;
+    // }
     if (!LoadFile(build_conf.data_path)) {
         LOG_KNOWHERE_ERROR_ << "Failed load the raw data before building." << std::endl;
         return Status::diskann_file_error;
@@ -269,6 +269,7 @@ DiskANNIndexNode<T>::Add(const DataSet& dataset, const Config& cfg) {
 
     auto diskann_metric =
         build_conf.metric_type == knowhere::metric::L2 ? diskann::Metric::L2 : diskann::Metric::INNER_PRODUCT;
+    auto num_nodes_to_cache = GetCachedNodeNum(build_conf.search_cache_budget_gb, dim, build_conf.max_degree);
     diskann::BuildConfig diskann_internal_build_config{data_path,
                                                        index_prefix_,
                                                        diskann_metric,
@@ -278,7 +279,8 @@ DiskANNIndexNode<T>::Add(const DataSet& dataset, const Config& cfg) {
                                                        static_cast<double>(build_conf.build_dram_budget_gb),
                                                        static_cast<uint32_t>(build_conf.disk_pq_dims),
                                                        false,
-                                                       build_conf.accelerate_build};
+                                                       build_conf.accelerate_build,
+                                                       num_nodes_to_cache};
     auto build_stat =
         TryDiskANNCall<int>([&]() -> int { return diskann::build_disk_index<T>(diskann_internal_build_config); });
 
@@ -378,7 +380,20 @@ DiskANNIndexNode<T>::Prepare(const Config& cfg) {
     if (num_nodes_to_cache > 0) {
         std::vector<uint32_t> node_list;
         LOG_KNOWHERE_INFO_ << "Caching " << num_nodes_to_cache << " sample nodes around medoid(s).";
-        if (prep_conf.use_bfs_cache) {
+        auto cached_nodes_file = diskann::get_cached_nodes_file(index_prefix_);
+        if (file_exists(cached_nodes_file)) {
+            std::cout << "find diskann file" << std::endl;
+            size_t num_nodes, nodes_id_dim;
+            uint32_t* cached_nodes_ids = nullptr;
+            diskann::load_bin<uint32_t>(cached_nodes_file, cached_nodes_ids, num_nodes, nodes_id_dim);
+            if (num_nodes_to_cache > num_nodes) {
+                num_nodes_to_cache = num_nodes;
+            }
+            node_list.assign(cached_nodes_ids, cached_nodes_ids + num_nodes_to_cache);
+            if (cached_nodes_ids != nullptr) {
+                delete[] cached_nodes_ids;
+            }
+        } else if (prep_conf.use_bfs_cache) {
             auto gen_cache_expect = TryDiskANNCall<bool>([&]() -> bool {
                 pq_flash_index_->cache_bfs_levels(num_nodes_to_cache, node_list);
                 return true;
@@ -410,6 +425,7 @@ DiskANNIndexNode<T>::Prepare(const Config& cfg) {
             LOG_KNOWHERE_ERROR_ << "Failed to load cache for DiskANN.";
             return false;
         }
+        std::cout << "end of load caches" << std::endl;
     }
 
     // warmup
