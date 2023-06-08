@@ -94,12 +94,22 @@ namespace diskann {
       const std::string &infile, const std::string &indexPrefix,
       diskann::Metric &distMetric);
 
+  /* The entry point of the graph is used as the return value. If the graph
+   * parameter cannot be generated successfully, it is set to -1.*/
   template<typename T>
-  DISKANN_DLLEXPORT int build_merged_vamana_index(
+  DISKANN_DLLEXPORT int64_t build_merged_vamana_index(
       std::string base_file, diskann::Metric _compareMetric, unsigned L,
       unsigned R, bool accelerate_build, double sampling_rate,
       double ram_budget, std::string mem_index_path, std::string medoids_file,
       std::string centroids_file);
+
+  template<typename T>
+  DISKANN_DLLEXPORT void generate_cache_list_from_graph_with_pq(
+      _u64 num_nodes_to_cache, unsigned R, const diskann::Metric compare_metric,
+      const std::string &sample_file, const std::string &pq_pivots_path,
+      const std::string &pq_compressed_code_path, const unsigned entry_point,
+      const std::vector<std::vector<unsigned>> &graph,
+      const std::string                        &cache_file);
 
   template<typename T>
   DISKANN_DLLEXPORT uint32_t optimize_beamwidth(
@@ -127,6 +137,8 @@ namespace diskann {
     bool reorder = false;
     // acclerate the index build ~30% and lose ~1% recall
     bool accelerate_build = false;
+    // the cached nodes number
+    uint32_t num_nodes_to_cache = 0;
   };
 
   template<typename T>
