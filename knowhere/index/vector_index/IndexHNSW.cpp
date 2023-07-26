@@ -59,9 +59,9 @@ IndexHNSW::Load(const BinarySet& index_binary) {
     try {
         auto binary = index_binary.GetByName("HNSW");
 
-        MemoryIOReader reader;
+        MemoryMapper reader;
         reader.total = binary->size;
-        reader.data_ = binary->data.get();
+        reader.data_ = std::move(binary->data);
 
         hnswlib::SpaceInterface<float>* space = nullptr;
         index_ = std::make_unique<hnswlib::HierarchicalNSW<float>>(space);

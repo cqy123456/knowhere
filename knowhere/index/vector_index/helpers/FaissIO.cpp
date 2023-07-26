@@ -61,4 +61,18 @@ MemoryIOReader::operator()(void* ptr, size_t size, size_t nitems) {
     return nitems;
 }
 
+size_t 
+MemoryMapper::operator()(void* ptr, size_t size, bool zero_copy, size_t nitems) {
+    if (rp >= total) {
+        return 0;
+    }
+    size_t nremain = (total - rp) / size;
+    if (nremain < nitems) {
+        nitems = nremain;
+    }
+    memcpy(ptr, (data_.get() + rp), size * nitems);
+    rp += size * nitems;
+    return nitems;
+}
+
 }  // namespace knowhere

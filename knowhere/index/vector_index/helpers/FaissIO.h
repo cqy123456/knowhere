@@ -45,4 +45,34 @@ struct MemoryIOReader : public faiss::IOReader {
     }
 };
 
+struct MemoryMapper {
+    std::shared_ptr<uint8_t[]>  data_;
+    size_t rp = 0;
+    size_t total = 0;
+
+    size_t
+    operator()(void* ptr, size_t size, bool zero_copy, size_t nitems);
+    template <typename T>
+    size_t 
+    read(T* ptr, size_t size, bool zero_copy = false, size_t nitems = 1) {
+        return operator()(ptr, size, zero_copy, nitems);
+    }
+
+    template <typename T>
+    size_t pin(T*& ptr, size_t size, bool zero_copy, size_t nitems = 1) {
+        if (rp >= total) {
+            return 0;
+        }
+        size_t nremain = (total - rp) / size;
+        if (nremain < nitems) {
+            nitems = nremain;
+        }
+        ptr = (T*)(data_.get() + rp);
+        rp += size * nitems;
+        return nitems;
+    }
+    std::shared_ptr<uint8_t[]> 
+    getData() {return std::move(data_);}
+};
+
 }  // namespace knowhere

@@ -11,6 +11,7 @@
 #include "common/Utils.h"
 #include "common/lru_cache.h"
 #include "hnswlib.h"
+#include "knowhere/common/BinarySet.h"
 #include "knowhere/feder/HNSW.h"
 #include "knowhere/index/vector_index/helpers/FaissIO.h"
 #include "neighbor.h"
@@ -101,10 +102,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     };
 
     ~HierarchicalNSW() {
-        free(data_level0_memory_);
-        for (tableint i = 0; i < cur_element_count; i++) {
-            if (element_levels_[i] > 0)
-                free(linkLists_[i]);
+        if (index_bin == nullptr) {
+            free(data_level0_memory_);
+            for (tableint i = 0; i < cur_element_count; i++) {
+                if (element_levels_[i] > 0)
+                    free(linkLists_[i]);
+            }
         }
         free(linkLists_);
         delete visited_list_pool_;
@@ -158,6 +161,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     std::default_random_engine update_probability_generator_;
 
     mutable knowhere::lru_cache<uint64_t, tableint> lru_cache;
+
+    std::shared_ptr<uint8_t []> index_bin = nullptr;
 
     inline char*
     getDataByInternalId(tableint internal_id) const {
@@ -769,7 +774,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     void
-    loadIndex(knowhere::MemoryIOReader& input, size_t max_elements_i = 0) {
+    loadIndex(knowhere::MemoryMapper& input, size_t max_elements_i = 0) {
         // linxj: init with metrictype
         size_t dim = 100;
         readBinaryPOD(input, metric_type_);
@@ -805,10 +810,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         readBinaryPOD(input, mult_);
         readBinaryPOD(input, ef_construction_);
 
-        data_level0_memory_ = (char*)malloc(max_elements * size_data_per_element_);
-        if (data_level0_memory_ == nullptr)
-            throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
-        input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
+        //data_level0_memory_ = (char*)malloc(max_elements * size_data_per_element_);
+        // if (data_level0_memory_ == nullptr)
+        //     throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
+        input.pin(data_level0_memory_, cur_element_count * size_data_per_element_, true);
 
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 
@@ -832,12 +837,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 linkLists_[i] = nullptr;
             } else {
                 element_levels_[i] = linkListSize / size_links_per_element_;
-                linkLists_[i] = (char*)malloc(linkListSize);
-                if (linkLists_[i] == nullptr)
-                    throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklist");
-                input.read(linkLists_[i], linkListSize);
+                //linkLists_[i] = (char*)malloc(linkListSize);
+                // if (linkLists_[i] == nullptr)
+                //     throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklist");
+                input.pin(linkLists_[i], linkListSize, true);
             }
         }
+        index_bin = input.getData();
     }
 
     unsigned short int

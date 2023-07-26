@@ -38,7 +38,7 @@ class DataGen {
     Generate(const int dim, const int nb, const int nq, const bool is_binary = false);
 
  protected:
-    int nb = 10000;
+    int nb = 1000000;
     int nq = 10;
     int dim = 128;
     int k = 10;

@@ -148,8 +148,8 @@ static void writeBinaryPOD(W &out, const T &podRef) {
 }
 
 template<typename T, typename R>
-static void readBinaryPOD(R &in, T &podRef) {
-    in.read((char *) &podRef, sizeof(T));
+static void readBinaryPOD(R &in, T &podRef, bool zero_copy = false) {
+    in.read((char *) &podRef, sizeof(T), zero_copy);
 }
 
 template<typename MTYPE>
