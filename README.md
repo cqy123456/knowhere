@@ -85,7 +85,7 @@ $ git clean -fxd
 install dependency:
 
 ```
-sudo apt install swig python3-dev
+sudo apt install swig= python3-dev
 ```
 
 after build knowhere:

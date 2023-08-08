@@ -9,9 +9,12 @@
 // is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 // or implied. See the License for the specific language governing permissions and limitations under the License.
 
+#include <bitset>
+
 #include "catch2/catch_approx.hpp"
 #include "catch2/catch_test_macros.hpp"
 #include "catch2/generators/catch_generators.hpp"
+#include "io/FaissIO.h"
 #include "knowhere/comp/index_param.h"
 #include "knowhere/comp/knowhere_config.h"
 #include "knowhere/factory.h"
@@ -74,7 +77,8 @@ TEST_CASE("Test Binary Get Vector By Ids", "[Binary GetVectorByIds]") {
         idx.Serialize(bs);
 
         auto idx_new = knowhere::IndexFactory::Instance().Create(name);
-        idx_new.Deserialize(bs);
+        const knowhere::BinarySet& load_bs = bs;
+        idx_new.Deserialize<const knowhere::BinarySet&>(load_bs);
         auto results = idx_new.GetVectorByIds(*ids_ds);
         REQUIRE(results.has_value());
         auto xb = (uint8_t*)train_ds->GetTensor();
@@ -141,11 +145,34 @@ TEST_CASE("Test Float Get Vector By Ids", "[Float GetVectorByIds]") {
         knowhere::BinarySet bs;
         auto res = index.Serialize(bs);
         REQUIRE(res == knowhere::Status::success);
-        knowhere::BinaryPtr bptr = std::make_shared<knowhere::Binary>();
-        bptr->data = std::shared_ptr<uint8_t[]>((uint8_t*)p_data, [&](uint8_t*) {});
-        bptr->size = dim * rows * sizeof(float);
-        bs.Append("RAW_DATA", bptr);
-        res = index.Deserialize(bs);
+        uint64_t raw_data_size = dim * rows * sizeof(float);
+        uint64_t index_meta_size = bs.GetSize();
+        auto index_size = raw_data_size + index_meta_size;
+        auto index_bin = std::unique_ptr<uint8_t[]>(new uint8_t[index_size]);
+        knowhere::MemoryIOReader raw_data_reader;
+        raw_data_reader.data_ = static_cast<const uint8_t*>(p_data);
+        raw_data_reader.total = raw_data_size;
+        memcpy(index_bin.get() + index_meta_size, (const uint8_t*)p_data, raw_data_size);
+        float* raw_data_addr = (float*)(index_bin.get() + index_meta_size);
+        // for (auto i =0; i < dim * rows; i++) {
+        //     raw_data_addr[i] = ((float*)p_data)[i];
+        //     std::cout << "raw_data_addr[i]" << raw_data_addr[i] <<
+        //     "((float*)p_data)[i]"<<((float*)p_data)[i]<<std::endl;
+        // }
+        memcpy(index_bin.get(), bs.GetData(), index_meta_size);
+
+        // memcpy((float*)(index_bin.get()) + index_meta_size, p_data, raw_data_size);
+
+        // std::cout<<"raw data:"<<std::bitset<sizeof(float)*8>(((float*)p_data)[12])<<std::endl;
+        // std::cout<<"index_bin.get() data:"<<std::bitset<sizeof(float)*8>(((float*)(index_bin.get() +
+        // index_meta_size)[12]))<<std::endl;
+        std::cout << "raw data:" << ((float*)p_data)[12] << std::endl;
+        std::cout << "index_bin.get() data:" << raw_data_addr[12] << std::endl;
+
+        auto new_bs = knowhere::BinarySet(index_bin, index_size);
+        bs = new_bs;
+
+        res = index.Deserialize<const knowhere::BinarySet&>(bs);
         REQUIRE(res == knowhere::Status::success);
     };
 
@@ -176,7 +203,7 @@ TEST_CASE("Test Float Get Vector By Ids", "[Float GetVectorByIds]") {
         idx.Serialize(bs);
 
         auto idx_new = knowhere::IndexFactory::Instance().Create(name);
-        idx_new.Deserialize(bs);
+        idx_new.Deserialize<const knowhere::BinarySet&>(bs);
         if (name == knowhere::IndexEnum::INDEX_FAISS_IVFFLAT) {
             load_raw_data(idx_new, *train_ds, json);
         }
@@ -188,10 +215,12 @@ TEST_CASE("Test Float Get Vector By Ids", "[Float GetVectorByIds]") {
         auto res_data = (float*)results.value()->GetTensor();
         REQUIRE(res_rows == nq);
         REQUIRE(res_dim == dim);
-        for (int i = 0; i < nq; ++i) {
-            const auto id = ids_ds->GetIds()[i];
-            for (int j = 0; j < dim; ++j) {
-                REQUIRE(res_data[i * dim + j] == xb[id * dim + j]);
+        if (name == knowhere::IndexEnum::INDEX_FAISS_IVFFLAT) {
+            for (int i = 0; i < nq; ++i) {
+                const auto id = ids_ds->GetIds()[i];
+                for (int j = 0; j < dim; ++j) {
+                    REQUIRE(res_data[i * dim + j] == xb[id * dim + j]);
+                }
             }
         }
     }

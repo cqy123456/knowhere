@@ -1,6 +1,6 @@
 from . import swigknowhere
-from .swigknowhere import Status
-from .swigknowhere import GetBinarySet, GetNullDataSet, GetNullBitSetView
+from .swigknowhere import Status, BinarySet
+from .swigknowhere import GetNullDataSet, GetNullBitSetView
 import numpy as np
 
 def CreateIndex(name):
@@ -25,6 +25,8 @@ def ArrayToDataSet(arr):
         """
     )
 
+def GetBinarySet():
+    return knowhere.BinarySet
 
 def DataSetToArray(ans):
     dim = swigknowhere.DataSet_Dim(ans)

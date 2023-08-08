@@ -205,8 +205,10 @@ class Index {
         return this->node->Serialize(binset);
     }
 
+    template <typename C>
     Status
-    Deserialize(const BinarySet& binset, const Json& json = {}) {
+    Deserialize(C binset, const Json& json = {}) {
+        static_assert(std::is_same_v<C, const knowhere::BinarySet&> || std::is_same_v<C, knowhere::BinarySet&>);
         Json json_(json);
         auto cfg = this->node->CreateConfig();
         {

@@ -115,7 +115,8 @@ TEST_CASE("Invalid diskann params test", "[diskann]") {
         knowhere::DataSet* ds_ptr = nullptr;
         auto diskann = knowhere::IndexFactory::Instance().Create("DISKANN", diskann_index_pack);
         diskann.Build(*ds_ptr, test_gen());
-        diskann.Deserialize(knowhere::BinarySet(), test_gen());
+        const knowhere::BinarySet& null_bin_set = knowhere::BinarySet();
+        diskann.Deserialize<const knowhere::BinarySet&>(null_bin_set, test_gen());
 
         knowhere::Json test_json;
         auto query_ds = GenDataSet(kNumQueries, kDim, 42);
@@ -251,7 +252,7 @@ TEST_CASE("Test DiskANNIndexNode.", "[diskann]") {
         {
             // knn search
             auto diskann = knowhere::IndexFactory::Instance().Create("DISKANN", diskann_index_pack);
-            diskann.Deserialize(binset, deserialize_json);
+            diskann.Deserialize<const knowhere::BinarySet&>(binset, deserialize_json);
 
             auto knn_search_json = knn_search_gen().dump();
             knowhere::Json knn_json = knowhere::Json::parse(knn_search_json);
@@ -267,7 +268,7 @@ TEST_CASE("Test DiskANNIndexNode.", "[diskann]") {
                 REQUIRE(fs::exists(cached_nodes_file_path));
                 fs::remove(cached_nodes_file_path);
                 auto diskann_tmp = knowhere::IndexFactory::Instance().Create("DISKANN", diskann_index_pack);
-                diskann_tmp.Deserialize(binset, deserialize_json);
+                diskann_tmp.Deserialize<const knowhere::BinarySet&>(binset, deserialize_json);
                 auto knn_search_json = knn_search_gen().dump();
                 knowhere::Json knn_json = knowhere::Json::parse(knn_search_json);
                 auto res = diskann_tmp.Search(*query_ds, knn_json, nullptr);
@@ -363,7 +364,7 @@ TEST_CASE("Test DiskANN GetVectorByIds", "[diskann]") {
                 };
                 knowhere::Json deserialize_json = knowhere::Json::parse(deserialize_gen().dump());
                 auto index = knowhere::IndexFactory::Instance().Create("DISKANN", diskann_index_pack);
-                auto ret = index.Deserialize(binset, deserialize_json);
+                auto ret = index.Deserialize<const knowhere::BinarySet&>(binset, deserialize_json);
                 REQUIRE(ret == knowhere::Status::success);
                 std::vector<double> ids_sizes = {1, kNumRows * 0.2, kNumRows * 0.7, kNumRows};
                 for (const auto ids_size : ids_sizes) {
