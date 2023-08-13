@@ -123,25 +123,6 @@ Index<T>::Serialize(BinarySet& binset) const {
 
 template <typename T>
 inline Status
-Index<T>::Deserialize(const BinarySet& binset, const Json& json) {
-    Json json_(json);
-    auto cfg = this->node->CreateConfig();
-    {
-        auto res = Config::FormatAndCheck(*cfg, json_);
-        LOG_KNOWHERE_DEBUG_ << "Deserialize config dump: " << json_.dump();
-        if (res != Status::success) {
-            return res;
-        }
-    }
-    auto res = Config::Load(*cfg, json_, knowhere::DESERIALIZE);
-    if (res != Status::success) {
-        return res;
-    }
-    return this->node->Deserialize(binset, *cfg);
-}
-
-template <typename T>
-inline Status
 Index<T>::DeserializeFromFile(const std::string& filename, const Json& json) {
     Json json_(json);
     auto cfg = this->node->CreateConfig();

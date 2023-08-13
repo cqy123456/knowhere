@@ -142,8 +142,24 @@ class Index {
     Status
     Serialize(BinarySet& binset) const;
 
+    template <typename BinT>
     Status
-    Deserialize(const BinarySet& binset, const Json& json = {});
+    Deserialize(BinT&& binset, const Json& json = {}) {
+        Json json_(json);
+        auto cfg = this->node->CreateConfig();
+        {
+            auto res = Config::FormatAndCheck(*cfg, json_);
+            LOG_KNOWHERE_DEBUG_ << "Deserialize config dump: " << json_.dump();
+            if (res != Status::success) {
+                return res;
+            }
+        }
+        auto res = Config::Load(*cfg, json_, knowhere::DESERIALIZE);
+        if (res != Status::success) {
+            return res;
+        }
+        return this->node->Deserialize(std::forward<BinT>(binset), *cfg);
+    }
 
     Status
     DeserializeFromFile(const std::string& filename, const Json& json = {});
